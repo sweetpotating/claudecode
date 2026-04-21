@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SG 4D & Toto Number Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <h1>Singapore 4D & Toto Generator</h1>
+    <p class="subtitle">Unofficial random number picker with hints-driven suggestions</p>
+    <div id="draw-reminder" class="draw-reminder" aria-live="polite"></div>
+  </header>
+
+  <main class="container">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="four-d" role="tab" aria-selected="true">4D</button>
+      <button class="tab" data-tab="toto" role="tab" aria-selected="false">TOTO</button>
+      <button class="tab" data-tab="rules" role="tab" aria-selected="false">How to Play</button>
+    </nav>
+
+    <section id="four-d" class="panel active" role="tabpanel">
+      <h2>4D Generator</h2>
+      <p class="panel-desc">
+        Pick a 4-digit number from <strong>0000</strong> to <strong>9999</strong>.
+        Draws: <strong>Wed, Sat, Sun</strong> at 6:30 PM SGT.
+      </p>
+
+      <div class="controls">
+        <label>
+          Entries
+          <input id="fourd-count" type="number" min="1" max="12" value="1" />
+        </label>
+        <label>
+          Bet type
+          <select id="fourd-bettype">
+            <option value="ordinary">Ordinary (Big/Small)</option>
+            <option value="ibet">iBet (all permutations)</option>
+            <option value="roll">4D Roll (one rolling digit)</option>
+            <option value="system">System Entry (24 perms)</option>
+          </select>
+        </label>
+        <button id="fourd-generate" class="primary">Generate 4D</button>
+      </div>
+
+      <div id="fourd-results" class="results" aria-live="polite"></div>
+    </section>
+
+    <section id="toto" class="panel" role="tabpanel">
+      <h2>Toto Generator</h2>
+      <p class="panel-desc">
+        Pick <strong>6 numbers</strong> from <strong>1 to 49</strong>. A 7th
+        "additional number" is drawn for prize tiers.
+        Draws: <strong>Mon, Thu</strong> at 6:30 PM SGT.
+      </p>
+
+      <div class="controls">
+        <label>
+          Boards
+          <input id="toto-count" type="number" min="1" max="10" value="1" />
+        </label>
+        <label>
+          Entry type
+          <select id="toto-bettype">
+            <option value="6">Ordinary (6 numbers)</option>
+            <option value="7">System 7</option>
+            <option value="8">System 8</option>
+            <option value="9">System 9</option>
+            <option value="10">System 10</option>
+            <option value="11">System 11</option>
+            <option value="12">System 12</option>
+          </select>
+        </label>
+        <button id="toto-generate" class="primary">Generate Toto</button>
+      </div>
+
+      <div id="toto-results" class="results" aria-live="polite"></div>
+    </section>
+
+    <section id="rules" class="panel" role="tabpanel">
+      <h2>How to Play</h2>
+
+      <article>
+        <h3>4D</h3>
+        <ul>
+          <li>Choose any 4-digit number from 0000 to 9999.</li>
+          <li>Minimum bet: S$1 per entry.</li>
+          <li>Each draw picks 23 winning numbers: 1st, 2nd, 3rd, 10 Starter, 10 Consolation.</li>
+          <li>
+            Bet types: <em>Ordinary</em> (Big covers all 23 prizes; Small covers top 3),
+            <em>iBet</em> (wins if any permutation matches),
+            <em>4D Roll</em> (one digit is a wildcard 0-9),
+            <em>System Entry</em> (all 24 permutations of 4 unique digits).
+          </li>
+          <li>Draws: Wednesday, Saturday, Sunday at 6:30 PM.</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>Toto</h3>
+        <ul>
+          <li>Pick 6 numbers from 1 to 49. Minimum bet: S$1.</li>
+          <li>Each draw: 6 winning numbers plus 1 additional number (for Groups 2 & 5).</li>
+          <li>
+            System entries: pick 7-12 numbers to cover every 6-number combination from
+            your set (higher cost, higher coverage).
+          </li>
+          <li>System Roll: pick 5 numbers plus a rolling wildcard.</li>
+          <li>Draws: Monday and Thursday at 6:30 PM.</li>
+        </ul>
+      </article>
+
+      <p class="disclaimer">
+        This tool is for entertainment only. It is not affiliated with Singapore Pools.
+        Please gamble responsibly.
+      </p>
+    </section>
+
+    <section class="chat-section">
+      <h2>Hint Box</h2>
+      <p class="panel-desc">
+        Tell the generator what your numbers should represent -- a birthday, a
+        lucky digit, a feeling. Hints carry over to the next generate.
+        Examples: <em>"lucky 7 and my birthday 14 March"</em>, <em>"avoid 13"</em>,
+        <em>"even numbers only"</em>, <em>"anniversary 2008"</em>.
+      </p>
+      <div id="chat-log" class="chat-log" aria-live="polite"></div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" placeholder="Type an idea or hint..." autocomplete="off" />
+        <button type="submit" class="primary">Send</button>
+        <button type="button" id="chat-clear">Clear</button>
+      </form>
+      <div id="chat-state" class="chat-state"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>Entertainment purposes only. Gamble responsibly. Not affiliated with Singapore Pools.</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
