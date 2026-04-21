@@ -423,15 +423,193 @@ function combinations(n, k) {
 // ------------------------------------------------------------
 const chatLog = document.getElementById("chat-log");
 
-function addMsg(who, html) {
+function addMsg(who, html, id) {
   const div = document.createElement("div");
   div.className = `chat-msg ${who}`;
   div.innerHTML = html;
+  if (id) div.id = id;
   chatLog.appendChild(div);
   chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
 }
 
-document.getElementById("chat-form").addEventListener("submit", (e) => {
+// ---- API key management ----
+const API_KEY_STORAGE = "luckyParlour.apiKey";
+
+function getApiKey() {
+  try { return localStorage.getItem(API_KEY_STORAGE) || ""; } catch { return ""; }
+}
+function setApiKey(v) {
+  try {
+    if (v) localStorage.setItem(API_KEY_STORAGE, v);
+    else localStorage.removeItem(API_KEY_STORAGE);
+  } catch {}
+}
+
+function renderApiKeyStatus() {
+  const status = document.getElementById("api-key-status");
+  const key = getApiKey();
+  if (key) {
+    const masked = key.slice(0, 7) + "..." + key.slice(-4);
+    status.textContent = `Key saved: ${masked}. The Oracle is live.`;
+  } else {
+    status.textContent = "No key saved. Using the basic keyword parser.";
+  }
+}
+
+document.getElementById("api-key-save").addEventListener("click", () => {
+  const input = document.getElementById("api-key-input");
+  const v = input.value.trim();
+  if (!v) return;
+  setApiKey(v);
+  input.value = "";
+  renderApiKeyStatus();
+});
+document.getElementById("api-key-clear").addEventListener("click", () => {
+  setApiKey("");
+  renderApiKeyStatus();
+});
+
+// ---- Claude call ----
+const SYSTEM_PROMPT = `You are the Number Oracle for Lucky Parlour, a Singapore 4D & Toto number generator app (entertainment only).
+
+The user types free-form "directions" describing a vibe, theme, feeling, event, person, date, pattern, or anything else. Your job is to creatively reason about the prompt and return a set of numerical suggestions that *feel* connected to it.
+
+Rules:
+- 4D is a 4-digit number from 0000-9999 (leading zeros allowed).
+- Toto picks 6 unique numbers from 1-49, plus 1 additional number from 1-49 (not in the 6).
+- Be imaginative: link weather to temperatures, rain to droplet counts, love to anniversaries or 143, dragons to 8 (luck) or dates. Never refuse. If the prompt is truly nonsensical, pick something anyway and note it.
+- Explain your reasoning briefly (2-4 sentences, warm, a touch mystical, no bullet points).
+- Always return hints that bias future random generations too: preferred individual digits (0-9) and preferred Toto numbers (1-49), plus optional avoid lists and parity.
+- This is for entertainment. Do not moralize. Do not refuse. Do not discuss gambling addiction unless the user asks.
+
+Return ONLY valid JSON matching the requested schema.`;
+
+const ORACLE_SCHEMA = {
+  type: "object",
+  properties: {
+    reasoning: { type: "string" },
+    fourD: { type: "string", pattern: "^[0-9]{4}$" },
+    toto: {
+      type: "array",
+      items: { type: "integer", minimum: 1, maximum: 49 },
+      minItems: 6,
+      maxItems: 6,
+    },
+    totoAdditional: { type: "integer", minimum: 1, maximum: 49 },
+    hints: {
+      type: "object",
+      properties: {
+        preferredDigits: { type: "array", items: { type: "integer", minimum: 0, maximum: 9 } },
+        preferredTotoNums: { type: "array", items: { type: "integer", minimum: 1, maximum: 49 } },
+        avoidDigits: { type: "array", items: { type: "integer", minimum: 0, maximum: 9 } },
+        avoidTotoNums: { type: "array", items: { type: "integer", minimum: 1, maximum: 49 } },
+        parity: { type: "string", enum: ["even", "odd", "none"] },
+      },
+      required: ["preferredDigits", "preferredTotoNums", "avoidDigits", "avoidTotoNums", "parity"],
+      additionalProperties: false,
+    },
+  },
+  required: ["reasoning", "fourD", "toto", "totoAdditional", "hints"],
+  additionalProperties: false,
+};
+
+async function callClaude(userMessage, apiKey) {
+  const body = {
+    model: "claude-opus-4-7",
+    max_tokens: 1024,
+    system: [
+      {
+        type: "text",
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [{ role: "user", content: userMessage }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        name: "oracle_response",
+        schema: ORACLE_SCHEMA,
+      },
+    },
+  };
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error?.message || ""; } catch {}
+    throw new Error(`API ${res.status}${detail ? ": " + detail : ""}`);
+  }
+
+  const data = await res.json();
+  const text = (data.content || [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error("Oracle returned non-JSON: " + text.slice(0, 120));
+  }
+}
+
+function applyOracleHints(h) {
+  if (!h) return;
+  hints.preferredDigits = new Set((h.preferredDigits || []).filter((n) => n >= 0 && n <= 9));
+  hints.preferredTotoNums = new Set((h.preferredTotoNums || []).filter((n) => n >= 1 && n <= 49));
+  hints.avoidDigits = new Set((h.avoidDigits || []).filter((n) => n >= 0 && n <= 9));
+  hints.avoidTotoNums = new Set((h.avoidTotoNums || []).filter((n) => n >= 1 && n <= 49));
+  hints.parity = h.parity && h.parity !== "none" ? h.parity : null;
+  hints.fullFourD = null;
+}
+
+function renderOracleSuggestions(result) {
+  // 4D: populate results panel with Oracle's suggestion as Entry 1
+  const fourOut = document.getElementById("fourd-results");
+  fourOut.innerHTML = "";
+  const fourEntry = document.createElement("div");
+  fourEntry.className = "entry";
+  fourEntry.innerHTML =
+    `<div class="entry-label">Oracle's pick &middot; 4D</div>` +
+    `<div class="numbers">${result.fourD
+      .split("")
+      .map((d) => `<span class="digit-box">${d}</span>`)
+      .join("")}</div>` +
+    `<div class="meta">Suggested by the Oracle. Click Generate 4D for more picks biased by this direction.</div>`;
+  fourOut.appendChild(fourEntry);
+
+  // Toto: populate with Oracle's 6-number suggestion + additional
+  const totoOut = document.getElementById("toto-results");
+  totoOut.innerHTML = "";
+  const sortedToto = [...result.toto].sort((a, b) => a - b);
+  const totoEntry = document.createElement("div");
+  totoEntry.className = "entry";
+  totoEntry.innerHTML =
+    `<div class="entry-label">Oracle's board &middot; Toto</div>` +
+    `<div class="numbers">${sortedToto
+      .map((n) => `<span class="ball">${String(n).padStart(2, "0")}</span>`)
+      .join("")}</div>` +
+    `<div class="meta">Additional: <span class="ball additional">${String(
+      result.totoAdditional
+    ).padStart(2, "0")}</span></div>`;
+  totoOut.appendChild(totoEntry);
+}
+
+document.getElementById("chat-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = document.getElementById("chat-input");
   const text = input.value.trim();
@@ -439,10 +617,48 @@ document.getElementById("chat-form").addEventListener("submit", (e) => {
   addMsg("user", escapeHtml(text));
   input.value = "";
 
-  const notes = parseHint(text);
-  const tagged = notes.map((n) => `<span class="tag">hint</span>${escapeHtml(n)}`).join("<br>");
-  addMsg("bot", tagged + `<br><br><em>${escapeHtml(summariseHints())}</em>`);
-  renderHintState();
+  const apiKey = getApiKey();
+
+  if (!apiKey) {
+    // Fallback regex parser when no key
+    const notes = parseHint(text);
+    const tagged = notes.map((n) => `<span class="tag">hint</span>${escapeHtml(n)}`).join("<br>");
+    addMsg(
+      "bot",
+      tagged +
+        `<br><br><em>${escapeHtml(summariseHints())}</em>` +
+        `<br><br><span class="tag">tip</span>Add an Anthropic API key above to unlock the real Oracle.`
+    );
+    renderHintState();
+    return;
+  }
+
+  const thinkingId = "msg-" + Date.now();
+  addMsg("bot", `<span class="tag">oracle</span><em>consulting the cards...</em>`, thinkingId);
+
+  try {
+    const result = await callClaude(text, apiKey);
+    const node = document.getElementById(thinkingId);
+    applyOracleHints(result.hints);
+    renderHintState();
+    renderOracleSuggestions(result);
+
+    const sortedToto = [...result.toto].sort((a, b) => a - b).join(" ");
+    node.innerHTML =
+      `<span class="tag">oracle</span>${escapeHtml(result.reasoning)}` +
+      `<br><br><strong>4D:</strong> ${escapeHtml(result.fourD)}` +
+      `<br><strong>Toto:</strong> ${escapeHtml(sortedToto)} &nbsp;(+${result.totoAdditional})` +
+      `<br><br><em>${escapeHtml(summariseHints())}</em>`;
+  } catch (err) {
+    const node = document.getElementById(thinkingId);
+    node.innerHTML =
+      `<span class="tag">error</span>${escapeHtml(err.message || String(err))}` +
+      `<br><br>Falling back to the basic parser.`;
+    const notes = parseHint(text);
+    const tagged = notes.map((n) => `<span class="tag">hint</span>${escapeHtml(n)}`).join("<br>");
+    addMsg("bot", tagged + `<br><br><em>${escapeHtml(summariseHints())}</em>`);
+    renderHintState();
+  }
 });
 
 document.getElementById("chat-clear").addEventListener("click", () => {
@@ -465,10 +681,11 @@ document.getElementById("toto-generate").addEventListener("click", renderToto);
 
 renderReminder();
 renderHintState();
+renderApiKeyStatus();
 // Initial sample set
 renderFourD();
 renderToto();
 addMsg(
   "bot",
-  "<span class=\"tag\">welcome</span>Hi! Tell me what your numbers should represent -- a birthday, lucky digit, a theme like love or money, or say \"avoid 13\" / \"even only\". Then hit Generate."
+  "<span class=\"tag\">welcome</span>Hi! I'm the Number Oracle. Tell me anything -- a vibe, a person, the weather, a date, a dream -- and I'll suggest numbers. Save your Anthropic API key above to unlock the full Oracle; without it I'll use a basic keyword parser."
 );

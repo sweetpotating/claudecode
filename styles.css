@@ -538,6 +538,73 @@ article li em { color: var(--gold); font-style: italic; }
   letter-spacing: 0.02em;
 }
 
+/* ---- API key disclosure ---- */
+.api-key-box {
+  margin: 0 0 1rem;
+  border: 1px dashed rgba(245,198,90,0.4);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.25);
+  padding: 0.2rem 0.8rem;
+  position: relative;
+  z-index: 1;
+}
+.api-key-box summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-family: "Cinzel", serif;
+  letter-spacing: 0.1em;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.2rem;
+  list-style: none;
+  user-select: none;
+}
+.api-key-box summary::-webkit-details-marker { display: none; }
+.api-key-box[open] summary { color: var(--gold-bright); }
+.api-key-inner {
+  padding: 0.4rem 0 0.8rem;
+  font-size: 0.85rem;
+}
+.api-key-inner .muted {
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+}
+.api-key-inner code {
+  background: rgba(245,198,90,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--gold-bright);
+  font-size: 0.78rem;
+}
+.api-key-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.api-key-row input {
+  flex: 1 1 240px;
+  padding: 0.55rem 0.7rem;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(245,198,90,0.35);
+  border-radius: 6px;
+  color: var(--gold-bright);
+  font-family: "Inter", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+}
+.api-key-row input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245,198,90,0.15);
+}
+.api-key-row button {
+  padding: 0.55rem 0.9rem;
+  font-size: 0.82rem;
+}
+#api-key-status {
+  margin-top: 0.5rem;
+}
+
 /* ---- Footer ---- */
 .footer {
   text-align: center;

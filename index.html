@@ -129,12 +129,33 @@
       <h2>Directions</h2>
       <p class="panel-desc">
         Type in more directions for the numbers linked to your direction to be generated.
-        Examples: <em>"lucky 7 and my birthday 14 March"</em>, <em>"avoid 13"</em>,
-        <em>"even numbers only"</em>, <em>"anniversary 2008"</em>.
+        Ask for anything &mdash; <em>"numbers linked to the weather today"</em>,
+        <em>"something for my grandma who loves mahjong"</em>,
+        <em>"numbers that feel like rain"</em>, <em>"avoid 13, lucky 7"</em>.
+        With an Anthropic API key the Oracle reasons about any prompt; without one
+        it falls back to a basic keyword parser.
       </p>
+
+      <details class="api-key-box">
+        <summary>&#128273; Anthropic API key (stored in your browser only)</summary>
+        <div class="api-key-inner">
+          <p class="muted">
+            Get a key at <code>console.anthropic.com</code>. It's saved to your
+            browser's localStorage and sent directly to Anthropic &mdash; never
+            to anyone else.
+          </p>
+          <div class="api-key-row">
+            <input id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" />
+            <button type="button" id="api-key-save" class="primary">Save</button>
+            <button type="button" id="api-key-clear">Remove</button>
+          </div>
+          <div id="api-key-status" class="chat-state"></div>
+        </div>
+      </details>
+
       <div id="chat-log" class="chat-log" aria-live="polite"></div>
       <form id="chat-form" class="chat-form">
-        <input id="chat-input" type="text" placeholder="Type an idea or hint..." autocomplete="off" />
+        <input id="chat-input" type="text" placeholder="Ask the Oracle anything..." autocomplete="off" />
         <button type="submit" class="primary">Send</button>
         <button type="button" id="chat-clear">Clear</button>
       </form>
