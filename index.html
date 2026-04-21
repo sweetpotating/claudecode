@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SG 4D & Toto Number Generator</title>
+  <title>Lucky Parlour &middot; SG 4D & Toto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Bebas+Neue&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="marquee-border top"></div>
+
   <header class="hero">
-    <h1>Singapore 4D & Toto Generator</h1>
-    <p class="subtitle">Unofficial random number picker with hints-driven suggestions</p>
-    <div id="draw-reminder" class="draw-reminder" aria-live="polite"></div>
+    <div class="hero-inner">
+      <div class="hero-eyebrow">&#9830; &nbsp; Est. 2026 &nbsp; &#9830;</div>
+      <h1><span class="glow-gold">Lucky</span> <span class="glow-red">Parlour</span></h1>
+      <p class="subtitle">Singapore 4D &amp; TOTO &middot; random picks with a dash of destiny</p>
+      <div id="draw-reminder" class="draw-reminder" aria-live="polite"></div>
+    </div>
   </header>
 
   <main class="container">
@@ -118,10 +126,9 @@
     </section>
 
     <section class="chat-section">
-      <h2>Hint Box</h2>
+      <h2>Directions</h2>
       <p class="panel-desc">
-        Tell the generator what your numbers should represent -- a birthday, a
-        lucky digit, a feeling. Hints carry over to the next generate.
+        Type in more directions for the numbers linked to your direction to be generated.
         Examples: <em>"lucky 7 and my birthday 14 March"</em>, <em>"avoid 13"</em>,
         <em>"even numbers only"</em>, <em>"anniversary 2008"</em>.
       </p>
@@ -135,8 +142,10 @@
     </section>
   </main>
 
+  <div class="marquee-border bottom"></div>
+
   <footer class="footer">
-    <small>Entertainment purposes only. Gamble responsibly. Not affiliated with Singapore Pools.</small>
+    <small>&#9830; Entertainment purposes only &middot; Gamble responsibly &middot; Not affiliated with Singapore Pools &#9830;</small>
   </footer>
 
   <script src="app.js"></script>
