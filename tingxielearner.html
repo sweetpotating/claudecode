@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Tīngxiě Learner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Noto+Serif+SC:wght@700;900&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #2C1810;
+    --paper: #FFFBF2;
+    --cream: #FFE8D6;
+    --rust: #E63946;
+    --orange: #FF7B54;
+    --amber: #FFB84D;
+    --maroon: #9B2226;
+    --muted: #6B5444;
+    --green: #86C375;
+    --red: #FF7B54;
+    --pink: #FFE5E0;
+    --mintCorrect: #D4F1C5;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--ink);
+    background: radial-gradient(ellipse at top, var(--cream) 0%, var(--paper) 50%, #FFF4E0 100%);
+    min-height: 100vh;
+    padding-bottom: 24px;
+    overscroll-behavior: none;
+  }
+  button { font-family: inherit; touch-action: manipulation; cursor: pointer; }
+  input { font-family: inherit; -webkit-appearance: none; }
+  input:focus { border-color: var(--rust) !important; outline: none; }
+  .zh { font-family: 'Noto Serif SC', serif; font-weight: 900; }
+  .display { font-family: 'Fraunces', serif; font-weight: 800; letter-spacing: -0.02em; }
+
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Layout */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255, 251, 242, 0.92);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 2px solid var(--ink);
+  }
+  .header-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 720px; margin: 0 auto; padding: 10px 14px; gap: 10px;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .logo {
+    display: flex; gap: 2px; background: var(--rust); padding: 6px 9px;
+    border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); flex-shrink: 0;
+  }
+  .logo span { color: var(--paper); font-family: 'Noto Serif SC', serif; font-weight: 900; font-size: 20px; line-height: 1; }
+  .title { margin: 0; font-size: 20px; line-height: 1.1; }
+  .subtitle { margin: 0; font-size: 11px; color: var(--muted); font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  main { max-width: 720px; margin: 0 auto; padding: 16px 14px; }
+
+  .section { animation: fadeUp 0.3s ease; margin-bottom: 24px; }
+  .section-title { font-family: 'Fraunces', serif; font-weight: 800; font-size: 18px;
+    margin: 0 0 10px; letter-spacing: -0.01em; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+
+  /* Buttons */
+  .btn {
+    border: 2.5px solid var(--ink); border-radius: 10px;
+    padding: 12px 16px; font-weight: 800; font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    box-shadow: 3px 3px 0 var(--ink); min-height: 46px;
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-secondary { background: var(--paper); color: var(--ink); }
+  .btn-sm {
+    border: 2px solid var(--ink); border-radius: 9px;
+    padding: 8px 12px; font-weight: 800; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 4px;
+    box-shadow: 2px 2px 0 var(--ink); min-height: 38px;
+    background: var(--ink); color: var(--paper);
+  }
+  .btn-icon {
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 8px;
+    width: 40px; height: 40px;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 2px 2px 0 var(--ink); flex-shrink: 0; padding: 0;
+  }
+  .btn-icon-lg {
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 10px;
+    width: 50px; height: 46px;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 3px 3px 0 var(--ink); flex-shrink: 0; padding: 0;
+  }
+  .btn:disabled, .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-full { width: 100%; }
+
+  /* Level grid */
+  .level-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .level-card {
+    border: 2.5px solid var(--ink); border-radius: 14px; padding: 14px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: all 0.15s ease; min-height: 96px; justify-content: center;
+    background: var(--paper); color: var(--ink); box-shadow: 2px 2px 0 var(--ink);
+    font-family: inherit;
+  }
+  .level-card.active { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+  .level-card.active[data-id="preschool"] { background: var(--amber); color: var(--paper); }
+  .level-card.active[data-id="lower-pri"] { background: var(--orange); color: var(--paper); }
+  .level-card.active[data-id="upper-pri"] { background: var(--rust); color: var(--paper); }
+  .level-card.active[data-id="secondary"] { background: var(--maroon); color: var(--paper); }
+  .level-card .emoji { font-size: 28px; }
+  .level-card .label { font-weight: 800; font-size: 14px; line-height: 1.1; }
+  .level-card .sub { font-size: 11px; opacity: 0.8; font-weight: 600; }
+
+  /* List cards */
+  .list-grid { display: flex; flex-direction: column; gap: 12px; }
+  .list-card {
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 14px;
+    padding: 14px; box-shadow: 4px 4px 0 var(--ink);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .list-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .list-name { margin: 0; font-size: 16px; font-family: 'Fraunces', serif; font-weight: 700;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list-meta { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+  .word-preview { display: flex; flex-wrap: wrap; gap: 5px; }
+  .word-chip {
+    background: var(--cream); border: 1.5px solid var(--ink); border-radius: 7px;
+    padding: 3px 8px; font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 14px;
+  }
+  .more-chip {
+    background: var(--ink); color: var(--paper); border-radius: 7px;
+    padding: 3px 8px; font-size: 11px; font-weight: 800;
+  }
+
+  /* Empty state */
+  .empty {
+    background: var(--paper); border: 2.5px dashed var(--ink); border-radius: 14px;
+    padding: 28px 18px; text-align: center;
+  }
+
+  /* Bonus card */
+  .bonus-banner {
+    width: 100%; background: linear-gradient(135deg, var(--rust) 0%, var(--orange) 100%);
+    color: var(--paper); border: 2.5px solid var(--ink); border-radius: 14px;
+    padding: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 4px 4px 0 var(--ink); font-family: inherit; text-align: left; gap: 10px;
+  }
+  .bonus-banner h3 { margin: 0 0 4px; font-size: 18px; display: flex; align-items: center; gap: 6px; }
+  .bonus-banner p { margin: 0; opacity: 0.92; font-size: 13px; }
+
+  /* Scores */
+  .scores { display: flex; flex-direction: column; gap: 6px; }
+  .score-row {
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 9px;
+    padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .score-badge {
+    border: 2px solid var(--ink); border-radius: 7px;
+    padding: 4px 10px; font-weight: 800; font-size: 13px; flex-shrink: 0;
+  }
+
+  /* Form */
+  .form-wrap {
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 14px;
+    padding: 16px; box-shadow: 4px 4px 0 var(--ink);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .form-header { display: flex; align-items: center; gap: 10px; }
+  .form-header h2 { margin: 0; font-size: 19px; }
+  .label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 14px; }
+  .input {
+    border: 2px solid var(--ink); border-radius: 8px; padding: 12px;
+    font-size: 16px; background: var(--paper); width: 100%; min-height: 44px;
+  }
+
+  .add-stack { display: flex; flex-direction: column; gap: 8px; }
+  .word-row {
+    display: flex; gap: 10px; padding: 10px 12px;
+    background: var(--paper); border: 1.5px solid var(--ink);
+    border-radius: 8px; margin-bottom: 6px; align-items: center;
+  }
+  .word-row .hanzi-big { font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 22px; line-height: 1.1; }
+  .word-row .pinyin-small { font-size: 12px; color: var(--muted); }
+
+  .sticky-footer {
+    position: sticky; bottom: 0;
+    background: rgba(255, 251, 242, 0.95);
+    backdrop-filter: blur(8px);
+    margin: 8px -16px -16px;
+    padding: 12px 16px;
+    border-top: 2px solid var(--ink);
+    border-radius: 0 0 12px 12px;
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  /* Practice / Test */
+  .mini-header {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper); border: 2px solid var(--ink);
+    border-radius: 10px; padding: 8px 10px; margin-bottom: 12px;
+  }
+  .mini-header .label-text { font-weight: 800; font-size: 14px; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .progress-pill {
+    font-size: 13px; color: var(--muted); font-weight: 800;
+    background: var(--cream); padding: 4px 10px; border-radius: 7px;
+    border: 1.5px solid var(--ink); flex-shrink: 0;
+  }
+  .progress-bar {
+    height: 6px; background: var(--cream); border-radius: 3px;
+    border: 1.5px solid var(--ink); overflow: hidden; margin-bottom: 12px;
+  }
+  .progress-fill { height: 100%; background: var(--rust); transition: width 0.3s ease; }
+
+  .card-pad {
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 16px;
+    padding: 16px; box-shadow: 4px 4px 0 var(--ink);
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .big-hanzi-btn {
+    position: relative; width: 100%; aspect-ratio: 1/1; max-height: 52vh;
+    background: var(--cream); border: 3px solid var(--ink);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 4px 4px 0 var(--ink); font-family: inherit;
+    padding: 0;
+  }
+  .big-hanzi {
+    font-family: 'Noto Serif SC', serif; font-weight: 900;
+    font-size: clamp(72px, 28vw, 180px); line-height: 1;
+  }
+  .reveal-btn {
+    background: var(--cream); border: 2px solid var(--ink); border-radius: 9px;
+    padding: 10px 12px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; font-size: 13px; min-height: 42px; width: 100%;
+  }
+  .stroke-hint {
+    background: var(--cream); border: 2px solid var(--ink); border-radius: 9px;
+    padding: 10px 12px; width: 100%;
+    display: flex; align-items: center; gap: 8px; font-size: 12px;
+  }
+
+  .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+  .mode-btn {
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 9px;
+    padding: 10px 8px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 5px; font-size: 13px; font-family: inherit; min-height: 42px;
+  }
+  .mode-btn.active { background: var(--ink); color: var(--paper); box-shadow: 2px 2px 0 var(--muted); }
+
+  .test-prompt {
+    margin: 0; font-size: 13px; color: var(--muted); font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .big-speak-btn {
+    width: 120px; height: 120px; background: var(--rust); color: var(--paper);
+    border: 3px solid var(--ink); border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 4px 4px 0 var(--ink);
+    animation: pulse 2s ease-in-out infinite; font-family: inherit;
+  }
+  .answer-area { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .self-check {
+    background: var(--cream); border: 2px solid var(--ink); border-radius: 12px;
+    padding: 16px; width: 100%; text-align: center;
+  }
+  .self-check .big-answer {
+    font-size: 52px; font-family: 'Noto Serif SC', serif;
+    font-weight: 900; line-height: 1; margin: 4px 0;
+  }
+  .self-check-btns { display: flex; gap: 8px; margin-top: 12px; }
+  .self-check-btns .mode-btn { flex: 1; }
+
+  /* Canvas */
+  .canvas-wrap { position: relative; width: 100%; }
+  canvas {
+    width: 100%; aspect-ratio: 1/1; border-radius: 14px;
+    border: 3px solid var(--ink);
+    touch-action: none; -ms-touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    background: var(--paper); box-shadow: 3px 3px 0 var(--ink); display: block;
+    overscroll-behavior: none;
+  }
+  .clear-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: var(--paper); border: 2px solid var(--ink);
+    border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; font-family: inherit; font-weight: 700;
+    display: flex; align-items: center; gap: 4px; min-height: 36px;
+    touch-action: manipulation;
+  }
+
+  /* Results */
+  .results-card {
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 16px;
+    padding: 20px; box-shadow: 4px 4px 0 var(--ink);
+    text-align: center; max-width: 600px; width: 100%; margin: 0 auto;
+  }
+  .results-card .emoji-big { font-size: 60px; }
+  .results-card h2 { margin: 4px 0; font-size: 30px; }
+  .results-card .msg { font-size: 17px; color: var(--muted); margin: 0 0 18px; }
+  .result-details {
+    display: flex; flex-direction: column; gap: 5px;
+    margin: 14px 0; max-height: 260px; overflow-y: auto;
+  }
+  .result-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px; border: 2px solid var(--ink);
+  }
+  .result-row.correct { background: var(--mintCorrect); }
+  .result-row.wrong { background: var(--pink); }
+  .result-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  /* Bonus */
+  .bonus-level-row { display: flex; gap: 6px; flex-wrap: wrap; overflow-x: auto; padding-bottom: 2px; margin-bottom: 8px; }
+  .chip-btn {
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 999px;
+    padding: 7px 12px; font-weight: 800; font-family: inherit;
+    font-size: 12px; white-space: nowrap; flex-shrink: 0;
+  }
+  .chip-btn.active { color: var(--paper); }
+  .chip-btn.active[data-id="preschool"] { background: var(--amber); }
+  .chip-btn.active[data-id="lower-pri"] { background: var(--orange); }
+  .chip-btn.active[data-id="upper-pri"] { background: var(--rust); }
+  .chip-btn.active[data-id="secondary"] { background: var(--maroon); }
+
+  .tab-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .tab {
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 10px;
+    padding: 10px 12px; font-weight: 800; font-family: inherit; font-size: 13px;
+    min-height: 42px;
+  }
+  .tab.active { background: var(--rust); color: var(--paper); box-shadow: 2px 2px 0 var(--ink); }
+
+  .refresh-btn {
+    background: var(--cream); color: var(--ink); border: 2px solid var(--ink);
+    border-radius: 10px; padding: 8px 12px; font-weight: 800; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 5px;
+    box-shadow: 2px 2px 0 var(--ink); min-height: 38px;
+    font-family: inherit; flex-shrink: 0;
+  }
+
+  .bonus-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 10px; perspective: 1000px;
+  }
+  .bonus-grid.idiom-grid {
+    grid-template-columns: 1fr;
+  }
+  .bonus-item {
+    position: relative; aspect-ratio: 1/1;
+    transform-style: preserve-3d; transition: transform 0.5s;
+  }
+  .idiom-grid .bonus-item {
+    aspect-ratio: 3/1;
+  }
+  .bonus-item.flipped { transform: rotateY(180deg); }
+  .bonus-face {
+    position: absolute; inset: 0; border: 2.5px solid var(--ink); border-radius: 12px;
+    padding: 10px; box-shadow: 3px 3px 0 var(--ink); backface-visibility: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  }
+  .bonus-face.front { background: var(--paper); }
+  .bonus-face.back { background: var(--cream); transform: rotateY(180deg); }
+  .bonus-hanzi {
+    font-family: 'Noto Serif SC', serif; font-weight: 900;
+    font-size: clamp(26px, 8vw, 36px); line-height: 1.1; text-align: center;
+  }
+  .idiom-grid .bonus-hanzi {
+    font-size: clamp(22px, 6vw, 30px);
+  }
+  .bonus-pinyin { font-size: 13px; color: var(--muted); text-align: center; font-weight: 700; }
+  .bonus-meaning {
+    font-family: 'Fraunces', serif; font-weight: 700;
+    font-size: 14px; line-height: 1.35; text-align: center;
+    color: var(--ink); padding: 0 6px;
+  }
+  .flip-hint { position: absolute; bottom: 5px; font-size: 9px; color: var(--muted); font-weight: 700; letter-spacing: 0.05em; }
+  .speak-icon {
+    position: absolute; top: 6px; right: 6px;
+    background: var(--cream); border: 2px solid var(--ink);
+    border-radius: 50%; width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .speak-icon svg { width: 14px; height: 14px; }
+
+  /* Inline icons (SVG, currentColor) */
+  .ic { width: 1em; height: 1em; vertical-align: -0.15em; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Inline SVG icon symbols, referenced by id -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 3 3L12 15l-4 1 1-4z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  </defs>
+</svg>
+
+<script>
+// ============================================================
+// Data: Levels and Bonus Library
+// ============================================================
+const LEVELS = [
+  { id: 'preschool', label: 'Pre-school', sub: 'K1 – K2', emoji: '🌱' },
+  { id: 'lower-pri', label: 'Lower Pri', sub: 'P1 – P3', emoji: '📖' },
+  { id: 'upper-pri', label: 'Upper Pri', sub: 'P4 – P6', emoji: '✨' },
+  { id: 'secondary', label: 'Secondary', sub: 'Sec 1 – 4', emoji: '🎓' },
+];
+const LEVELS_BY_ID = new Map(LEVELS.map(l => [l.id, l]));
+
+const BONUS_LIBRARY = {
+  preschool: {
+    words: [
+      ['太阳','tài yáng'],['月亮','yuè liang'],['星星','xīng xing'],['苹果','píng guǒ'],['西瓜','xī guā'],
+      ['小狗','xiǎo gǒu'],['小猫','xiǎo māo'],['老虎','lǎo hǔ'],['大象','dà xiàng'],['蝴蝶','hú dié'],
+      ['妈妈','mā ma'],['爸爸','bà ba'],['老师','lǎo shī'],['朋友','péng yǒu'],['学校','xué xiào'],
+      ['红色','hóng sè'],['黄色','huáng sè'],['蓝色','lán sè'],['你好','nǐ hǎo'],['谢谢','xiè xie'],
+    ].map(([h,p]) => ({hanzi:h, pinyin:p})),
+    idioms: [
+      ['一心一意','yī xīn yī yì','Focus on one thing with all your heart.'],
+      ['马马虎虎','mǎ mǎ hū hū','Doing something carelessly — not good, not bad.'],
+      ['五颜六色','wǔ yán liù sè','Full of many bright colours.'],
+      ['十全十美','shí quán shí měi','Perfect in every way.'],
+      ['高高兴兴','gāo gāo xìng xìng','Very happy and cheerful.'],
+      ['快快乐乐','kuài kuài lè lè','Full of joy and fun.'],
+      ['干干净净','gān gān jìng jìng','Very clean, no dirt at all.'],
+      ['安安静静','ān ān jìng jìng','Very quiet and peaceful.'],
+      ['七上八下','qī shàng bā xià','Heart jumping with worry or excitement.'],
+      ['三心二意','sān xīn èr yì','Can\'t decide — keep changing your mind.'],
+      ['一举两得','yī jǔ liǎng dé','Do one thing and get two good results.'],
+      ['大大小小','dà dà xiǎo xiǎo','Things of all sizes mixed together.'],
+    ].map(([h,p,m]) => ({hanzi:h, pinyin:p, meaning:m})),
+  },
+  'lower-pri': {
+    words: [
+      ['学校','xué xiào'],['朋友','péng yǒu'],['快乐','kuài lè'],['勇敢','yǒng gǎn'],['聪明','cōng míng'],
+      ['认真','rèn zhēn'],['努力','nǔ lì'],['希望','xī wàng'],['帮助','bāng zhù'],['分享','fēn xiǎng'],
+      ['图书馆','tú shū guǎn'],['运动','yùn dòng'],['新加坡','xīn jiā pō'],['春节','chūn jié'],['彩虹','cǎi hóng'],
+      ['健康','jiàn kāng'],['礼物','lǐ wù'],['故事','gù shi'],['动物园','dòng wù yuán'],['公园','gōng yuán'],
+    ].map(([h,p]) => ({hanzi:h, pinyin:p})),
+    idioms: [
+      ['亡羊补牢','wáng yáng bǔ láo','Fix the problem after a mistake — better late than never.'],
+      ['画蛇添足','huà shé tiān zú','Adding something extra and ruining a good thing.'],
+      ['守株待兔','shǒu zhū dài tù','Waiting lazily for good luck instead of working for it.'],
+      ['井底之蛙','jǐng dǐ zhī wā','Someone who only sees a small world and thinks it\'s everything.'],
+      ['狐假虎威','hú jiǎ hǔ wēi','Using someone else\'s power to scare others.'],
+      ['对牛弹琴','duì niú tán qín','Talking to someone who can\'t understand — wasted effort.'],
+      ['掩耳盗铃','yǎn ěr dào líng','Fooling only yourself, not anyone else.'],
+      ['画龙点睛','huà lóng diǎn jīng','Adding the perfect finishing touch.'],
+      ['愚公移山','yú gōng yí shān','Keep working hard and you can do anything.'],
+      ['一举两得','yī jǔ liǎng dé','Do one thing, get two good results.'],
+      ['日积月累','rì jī yuè lěi','Little by little, day by day, you build up a lot.'],
+      ['熟能生巧','shú néng shēng qiǎo','Practice makes perfect.'],
+      ['专心致志','zhuān xīn zhì zhì','Fully concentrating with all your attention.'],
+      ['不耻下问','bù chǐ xià wèn','Not shy to ask questions, even to someone younger.'],
+      ['取长补短','qǔ cháng bǔ duǎn','Learn from others\' strengths to fix your weak spots.'],
+    ].map(([h,p,m]) => ({hanzi:h, pinyin:p, meaning:m})),
+  },
+  'upper-pri': {
+    words: [
+      ['环境','huán jìng'],['保护','bǎo hù'],['文化','wén huà'],['传统','chuán tǒng'],['科技','kē jì'],
+      ['挑战','tiǎo zhàn'],['坚持','jiān chí'],['理想','lǐ xiǎng'],['责任','zé rèn'],['合作','hé zuò'],
+      ['团结','tuán jié'],['诚信','chéng xìn'],['克服','kè fú'],['成功','chéng gōng'],['经验','jīng yàn'],
+      ['思考','sī kǎo'],['鼓励','gǔ lì'],['尊重','zūn zhòng'],['理解','lǐ jiě'],['影响','yǐng xiǎng'],
+    ].map(([h,p]) => ({hanzi:h, pinyin:p})),
+    idioms: [
+      ['滴水穿石','dī shuǐ chuān shí','Water drops can wear through stone — small efforts add up.'],
+      ['半途而废','bàn tú ér fèi','Giving up halfway — leaving things unfinished.'],
+      ['入乡随俗','rù xiāng suí sú','When in Rome, do as the Romans do.'],
+      ['事半功倍','shì bàn gōng bèi','Half the work, double the result — work smart.'],
+      ['一帆风顺','yī fān fēng shùn','Smooth sailing all the way — everything goes well.'],
+      ['雪中送炭','xuě zhōng sòng tàn','Helping someone exactly when they need it most.'],
+      ['锦上添花','jǐn shàng tiān huā','Adding something great to what\'s already good.'],
+      ['塞翁失马','sài wēng shī mǎ','A bad thing can turn into something good — blessing in disguise.'],
+      ['一鸣惊人','yī míng jīng rén','Quiet for a long time, then suddenly amazing everyone.'],
+      ['胸有成竹','xiōng yǒu chéng zhú','Having a clear plan ready before you start.'],
+      ['同舟共济','tóng zhōu gòng jì','Working together to get through hard times.'],
+      ['齐心协力','qí xīn xié lì','Everyone helping with the same goal.'],
+      ['助人为乐','zhù rén wéi lè','Finding happiness in helping other people.'],
+      ['舍己为人','shě jǐ wèi rén','Putting other people before yourself.'],
+      ['日新月异','rì xīn yuè yì','Changing and improving very quickly.'],
+    ].map(([h,p,m]) => ({hanzi:h, pinyin:p, meaning:m})),
+  },
+  secondary: {
+    words: [
+      ['探索','tàn suǒ'],['创新','chuàng xīn'],['价值观','jià zhí guān'],['反思','fǎn sī'],['抉择','jué zé'],
+      ['观点','guān diǎn'],['逻辑','luó jí'],['矛盾','máo dùn'],['平衡','píng héng'],['和谐','hé xié'],
+      ['毅力','yì lì'],['潜力','qián lì'],['身份','shēn fèn'],['挑战','tiǎo zhàn'],['突破','tū pò'],
+      ['趋势','qū shì'],['远见','yuǎn jiàn'],['本质','běn zhì'],['人工智能','rén gōng zhì néng'],['可持续','kě chí xù'],
+    ].map(([h,p]) => ({hanzi:h, pinyin:p})),
+    idioms: [
+      ['锲而不舍','qiè ér bù shě','Never giving up — sticking with it no matter what.'],
+      ['集思广益','jí sī guǎng yì','Pooling everyone\'s ideas for the best outcome.'],
+      ['居安思危','jū ān sī wēi','Think about possible dangers even when life is good.'],
+      ['推陈出新','tuī chén chū xīn','Replacing old ideas with new and better ones.'],
+      ['深思熟虑','shēn sī shú lǜ','Thinking carefully before making a decision.'],
+      ['坚韧不拔','jiān rèn bù bá','Tough and steady — won\'t give up under pressure.'],
+      ['高瞻远瞩','gāo zhān yuǎn zhǔ','Seeing far ahead — thinking about the long term.'],
+      ['未雨绸缪','wèi yǔ chóu móu','Preparing before trouble arrives.'],
+      ['防患未然','fáng huàn wèi rán','Stopping problems before they start.'],
+      ['循序渐进','xún xù jiàn jìn','Moving forward step by step in the right order.'],
+      ['精益求精','jīng yì qiú jīng','Already good but pushing to be even better.'],
+      ['相辅相成','xiāng fǔ xiāng chéng','Two things that make each other better.'],
+      ['事在人为','shì zài rén wéi','Success comes down to the effort you put in.'],
+      ['水到渠成','shuǐ dào qú chéng','When the time is right, success comes naturally.'],
+      ['实事求是','shí shì qiú shì','Be honest — look at the real facts, not opinions.'],
+      ['与时俱进','yǔ shí jù jìn','Keep up with the times and changing world.'],
+      ['博采众长','bó cǎi zhòng cháng','Take the best ideas from many different sources.'],
+      ['独树一帜','dú shù yī zhì','Standing out by having your own unique style.'],
+      ['匠心独运','jiàng xīn dú yùn','A creative, careful work made with skill.'],
+      ['坚定不移','jiān dìng bù yí','Firm and unshakable in what you believe.'],
+    ].map(([h,p,m]) => ({hanzi:h, pinyin:p, meaning:m})),
+  },
+};
+
+// ============================================================
+// Local pinyin dictionary (built from BONUS_LIBRARY)
+// ============================================================
+const CHAR_PINYIN = {
+  '的':'de','一':'yī','是':'shì','不':'bù','了':'le','人':'rén','我':'wǒ','在':'zài','有':'yǒu','他':'tā',
+  '这':'zhè','个':'gè','们':'men','中':'zhōng','来':'lái','上':'shàng','大':'dà','和':'hé','国':'guó',
+  '到':'dào','说':'shuō','时':'shí','要':'yào','就':'jiù','出':'chū','会':'huì','可':'kě','你':'nǐ',
+  '对':'duì','生':'shēng','能':'néng','子':'zi','那':'nà','下':'xià','自':'zì','年':'nián','过':'guò',
+  '后':'hòu','里':'lǐ','用':'yòng','行':'xíng','家':'jiā','事':'shì','成':'chéng','方':'fāng','多':'duō',
+  '去':'qù','学':'xué','如':'rú','都':'dōu','同':'tóng','面':'miàn','起':'qǐ','看':'kàn','天':'tiān',
+  '分':'fēn','好':'hǎo','小':'xiǎo','心':'xīn','她':'tā','本':'běn','前':'qián','开':'kāi','想':'xiǎng',
+  '日':'rì','力':'lì','把':'bǎ','十':'shí','已':'yǐ','工':'gōng','情':'qíng','明':'míng','知':'zhī',
+  '全':'quán','三':'sān','点':'diǎn','正':'zhèng','外':'wài','两':'liǎng','高':'gāo','间':'jiān','问':'wèn',
+  '最':'zuì','物':'wù','手':'shǒu','头':'tóu','文':'wén','美':'měi','见':'jiàn','水':'shuǐ','火':'huǒ',
+  '车':'chē','门':'mén','马':'mǎ','风':'fēng','雨':'yǔ','花':'huā','草':'cǎo','树':'shù','山':'shān',
+  '海':'hǎi','口':'kǒu','目':'mù','耳':'ěr','父':'fù','母':'mǔ','男':'nán','女':'nǚ','友':'yǒu',
+  '老':'lǎo','少':'shǎo','长':'zhǎng','短':'duǎn','宽':'kuān','远':'yuǎn','近':'jìn','早':'zǎo',
+  '晚':'wǎn','快':'kuài','慢':'màn','热':'rè','冷':'lěng','凉':'liáng','暖':'nuǎn','干':'gān','湿':'shī',
+  '吃':'chī','喝':'hē','睡':'shuì','走':'zǒu','跑':'pǎo','跳':'tiào','坐':'zuò','站':'zhàn','听':'tīng',
+  '读':'dú','写':'xiě','画':'huà','唱':'chàng','笑':'xiào','哭':'kū','爱':'ài','给':'gěi','送':'sòng',
+  '买':'mǎi','卖':'mài','打':'dǎ','洗':'xǐ','穿':'chuān','关':'guān','红':'hóng','黄':'huáng','蓝':'lán',
+  '绿':'lǜ','白':'bái','黑':'hēi','灰':'huī','紫':'zǐ','粉':'fěn','金':'jīn','银':'yín','春':'chūn',
+  '夏':'xià','秋':'qiū','冬':'dōng','月':'yuè','星':'xīng','太':'tài','阳':'yáng','光':'guāng','雪':'xuě',
+  '云':'yún','电':'diàn','声':'shēng','音':'yīn','乐':'lè','书':'shū','笔':'bǐ','字':'zì','校':'xiào',
+  '室':'shì','桌':'zhuō','椅':'yǐ','床':'chuáng','灯':'dēng','窗':'chuāng','路':'lù','街':'jiē','店':'diàn',
+  '医':'yī','院':'yuàn','场':'chǎng','园':'yuán','楼':'lóu','房':'fáng','名':'míng','岁':'suì','住':'zhù',
+  '思':'sī','念':'niàn','梦':'mèng','感':'gǎn','觉':'jué','怕':'pà','喜':'xǐ','怒':'nù','健':'jiàn',
+  '康':'kāng','病':'bìng','痛':'tòng','累':'lèi','饿':'è','饱':'bǎo','色':'sè','彩':'cǎi','形':'xíng',
+  '圆':'yuán','空':'kōng','满':'mǎn','重':'zhòng','轻':'qīng','贵':'guì','真':'zhēn','假':'jiǎ','错':'cuò',
+  '深':'shēn','浅':'qiǎn','厚':'hòu','薄':'báo','胖':'pàng','瘦':'shòu','叶':'yè','果':'guǒ','林':'lín',
+  '虫':'chóng','鸟':'niǎo','鱼':'yú','狗':'gǒu','猫':'māo','虎':'hǔ',
+};
+
+const EXTRA_DICT = {
+  '今天':'jīn tiān','明天':'míng tiān','昨天':'zuó tiān','现在':'xiàn zài','早上':'zǎo shàng','晚上':'wǎn shàng',
+  '听写':'tīng xiě','默写':'mò xiě','作业':'zuò yè','练习':'liàn xí','复习':'fù xí','听话':'tīng huà',
+  '说话':'shuō huà','读书':'dú shū','写字':'xiě zì','吃饭':'chī fàn','喝水':'hē shuǐ','睡觉':'shuì jiào',
+  '上学':'shàng xué','放学':'fàng xué','上课':'shàng kè','下课':'xià kè','喜欢':'xǐ huān','知道':'zhī dào',
+  '明白':'míng bái','记得':'jì de','忘记':'wàng jì','希望':'xī wàng','重要':'zhòng yào','可以':'kě yǐ',
+};
+
+const DICTIONARY = {};
+for (const lvl of Object.values(BONUS_LIBRARY)) {
+  for (const w of lvl.words) DICTIONARY[w.hanzi] = w.pinyin;
+  for (const w of lvl.idioms) DICTIONARY[w.hanzi] = w.pinyin;
+}
+for (const [k, v] of Object.entries(EXTRA_DICT)) {
+  if (!DICTIONARY[k]) DICTIONARY[k] = v;
+}
+
+function lookupPinyin(hanzi) {
+  if (DICTIONARY[hanzi]) return DICTIONARY[hanzi];
+  const chars = Array.from(hanzi);
+  const parts = chars.map(c => CHAR_PINYIN[c] || DICTIONARY[c] || '?');
+  return parts.every(p => p !== '?') ? parts.join(' ') : '';
+}
+
+// ============================================================
+// Speech synthesis
+// ============================================================
+let cachedZhVoice = null;
+function refreshVoices() {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  const voices = synth.getVoices();
+  cachedZhVoice = voices.find(v => v.lang && v.lang.startsWith('zh')) || null;
+}
+if (window.speechSynthesis) {
+  refreshVoices();
+  if (typeof window.speechSynthesis.addEventListener === 'function') {
+    window.speechSynthesis.addEventListener('voiceschanged', refreshVoices);
+  }
+}
+
+function speakChinese(text, rate = 0.8) {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  if (synth.speaking || synth.pending) synth.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'zh-CN';
+  utter.rate = rate;
+  utter.pitch = 1;
+  if (cachedZhVoice) utter.voice = cachedZhVoice;
+  synth.speak(utter);
+}
+
+// ============================================================
+// State (persisted to localStorage)
+// ============================================================
+const DEFAULT_LISTS = [
+  {
+    id: 'sample-preschool',
+    name: 'Sample · Pre-school (K1–K2)',
+    level: 'preschool',
+    words: [
+      { hanzi: '太阳', pinyin: 'tài yáng' },
+      { hanzi: '月亮', pinyin: 'yuè liang' },
+      { hanzi: '苹果', pinyin: 'píng guǒ' },
+      { hanzi: '妈妈', pinyin: 'mā ma' },
+      { hanzi: '老师', pinyin: 'lǎo shī' },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'sample-lower-pri',
+    name: 'Sample · Lower Pri (P1–P3)',
+    level: 'lower-pri',
+    words: [
+      { hanzi: '勇敢', pinyin: 'yǒng gǎn' },
+      { hanzi: '认真', pinyin: 'rèn zhēn' },
+      { hanzi: '朋友', pinyin: 'péng yǒu' },
+      { hanzi: '图书馆', pinyin: 'tú shū guǎn' },
+      { hanzi: '运动', pinyin: 'yùn dòng' },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'sample-upper-pri',
+    name: 'Sample · Upper Pri (P4–P6)',
+    level: 'upper-pri',
+    words: [
+      { hanzi: '环境', pinyin: 'huán jìng' },
+      { hanzi: '挑战', pinyin: 'tiǎo zhàn' },
+      { hanzi: '坚持', pinyin: 'jiān chí' },
+      { hanzi: '责任', pinyin: 'zé rèn' },
+      { hanzi: '合作', pinyin: 'hé zuò' },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'sample-secondary',
+    name: 'Sample · Secondary',
+    level: 'secondary',
+    words: [
+      { hanzi: '探索', pinyin: 'tàn suǒ' },
+      { hanzi: '创新', pinyin: 'chuàng xīn' },
+      { hanzi: '反思', pinyin: 'fǎn sī' },
+      { hanzi: '抉择', pinyin: 'jué zé' },
+      { hanzi: '坚韧不拔', pinyin: 'jiān rèn bù bá' },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+];
+
+const STORE_KEY = 'tingxie-store-v2';
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return { lists: [...DEFAULT_LISTS], currentLevel: 'lower-pri', scores: [] };
+}
+let saveTimer = null;
+function flushSaveStore() {
+  if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state.store)); } catch (e) {}
+}
+function saveStore() {
+  if (saveTimer !== null) return;
+  saveTimer = setTimeout(() => { saveTimer = null; flushSaveStore(); }, 200);
+}
+window.addEventListener('pagehide', flushSaveStore);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushSaveStore();
+});
+
+const state = {
+  store: loadStore(),
+  view: 'home',
+  activeListId: null,
+  editingListId: null,
+  // form
+  formName: '',
+  formWords: [],
+  formHanzi: '',
+  // practice
+  pIdx: 0,
+  pShowPin: false,
+  // test
+  tIdx: 0,
+  tMode: 'draw',
+  tOrder: [],
+  tResults: [],
+  tShowAnswer: false,
+  // results
+  lastScore: null,
+  // bonus
+  bonusTab: 'words',
+  bonusSeed: 0,
+  bonusFlipped: {},
+};
+
+// Helpers
+const icon = (id) => `<svg class="ic"><use href="#i-${id}"/></svg>`;
+const $ = (sel) => document.querySelector(sel);
+const root = document.getElementById('root');
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function navigate(view, opts = {}) {
+  state.view = view;
+  Object.assign(state, opts);
+  if (view === 'practice') { state.pIdx = 0; state.pShowPin = false; }
+  if (view === 'test') {
+    state.tIdx = 0; state.tMode = 'draw'; state.tResults = []; state.tShowAnswer = false;
+    const list = state.store.lists.find(l => l.id === state.activeListId);
+    const order = list.words.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    state.tOrder = order;
+  }
+  if (view === 'addList') {
+    if (state.editingListId) {
+      const list = state.store.lists.find(l => l.id === state.editingListId);
+      state.formName = list.name;
+      state.formWords = [...list.words];
+    } else {
+      state.formName = `Week of ${new Date().toLocaleDateString()}`;
+      state.formWords = [];
+    }
+    state.formHanzi = '';
+  }
+  render();
+}
+
+// ============================================================
+// Render
+// ============================================================
+let renderQueued = false;
+function render() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; renderNow(); });
+}
+function renderNow() {
+  // Tear down any canvas listeners from previous render before destroying DOM
+  if (canvasState.cleanup) {
+    canvasState.cleanup();
+    canvasState.cleanup = null;
+  }
+  const level = LEVELS_BY_ID.get(state.store.currentLevel) || LEVELS[1];
+  root.innerHTML = `
+    <header>
+      <div class="header-inner">
+        <div class="header-left">
+          <div class="logo"><span>听</span><span>写</span></div>
+          <div style="min-width:0">
+            <h1 class="title display">Tīngxiě</h1>
+            <p class="subtitle">${level.emoji} ${level.label}</p>
+          </div>
+        </div>
+        ${state.view !== 'home' ? `<button class="btn-icon" data-action="home" aria-label="Home">${icon('home')}</button>` : ''}
+      </div>
+    </header>
+    <main>${renderMain()}</main>
+  `;
+  bindEvents();
+  if (state.view === 'test' && state.tMode === 'draw') initCanvas();
+}
+
+function renderMain() {
+  switch (state.view) {
+    case 'home': return renderHome();
+    case 'addList': return renderAddList();
+    case 'practice': return renderPractice();
+    case 'test': return renderTest();
+    case 'results': return renderResults();
+    case 'bonus': return renderBonus();
+  }
+}
+
+// HOME ------------------------------------------------------
+function renderHome() {
+  return `
+    <section class="section">
+      <h2 class="section-title">Choose level</h2>
+      <div class="level-grid">
+        ${LEVELS.map(lv => `
+          <button class="level-card ${state.store.currentLevel === lv.id ? 'active' : ''}" data-id="${lv.id}" data-action="set-level">
+            <span class="emoji">${lv.emoji}</span>
+            <span class="label">${lv.label}</span>
+            <span class="sub">${lv.sub}</span>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">My word lists</h2>
+        <button class="btn-sm" data-action="new-list">${icon('plus')} New</button>
+      </div>
+      ${(() => {
+        const filtered = state.store.lists.filter(l => l.level === state.store.currentLevel);
+        if (filtered.length === 0) {
+          return `
+            <div class="empty">
+              <div style="font-size:48px;margin-bottom:8px">📋</div>
+              <h3 style="margin:0 0 6px;font-size:17px">No lists for this level yet</h3>
+              <p style="margin:0 0 16px;color:var(--muted);font-size:14px">Type in this week's 听写 words to get started.</p>
+              <button class="btn btn-primary" data-action="new-list">${icon('plus')} Create first list</button>
+            </div>
+          `;
+        }
+        return `
+          <div class="list-grid">
+            ${filtered.map(list => {
+              const lvLabel = LEVELS_BY_ID.get(list.level)?.label || '';
+              return `
+                <div class="list-card">
+                  <div class="list-card-header">
+                    <div style="min-width:0;flex:1">
+                      <h3 class="list-name">${escapeHtml(list.name)}</h3>
+                      <p class="list-meta">${list.words.length} words · ${lvLabel}</p>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                      <button class="btn-icon" data-action="edit-list" data-id="${list.id}" aria-label="Edit">${icon('edit')}</button>
+                      <button class="btn-icon" data-action="delete-list" data-id="${list.id}" style="background:var(--pink)" aria-label="Delete">${icon('trash')}</button>
+                    </div>
+                  </div>
+                  <div class="word-preview">
+                    ${list.words.slice(0, 5).map(w => `<span class="word-chip">${escapeHtml(w.hanzi)}</span>`).join('')}
+                    ${list.words.length > 5 ? `<span class="more-chip">+${list.words.length - 5}</span>` : ''}
+                  </div>
+                  <div class="btn-row">
+                    <button class="btn btn-secondary" data-action="practice" data-id="${list.id}">${icon('book')} Practice</button>
+                    <button class="btn btn-primary" data-action="test" data-id="${list.id}">${icon('trophy')} Test!</button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      })()}
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Bonus learning</h2>
+      <button class="bonus-banner" data-action="bonus">
+        <div style="flex:1;min-width:0">
+          <h3>${icon('sparkles')} Extra words & 成语</h3>
+          <p>Vocabulary and idioms for your level.</p>
+        </div>
+        ${icon('chevron')}
+      </button>
+    </section>
+
+    ${state.store.scores.length > 0 ? `
+      <section class="section">
+        <h2 class="section-title">Recent results</h2>
+        <div class="scores">
+          ${state.store.scores.slice(-5).reverse().map(s => {
+            const pct = s.correct / s.total;
+            const bg = pct >= 0.8 ? 'var(--green)' : pct >= 0.5 ? 'var(--amber)' : 'var(--orange)';
+            const dt = new Date(s.date);
+            return `
+              <div class="score-row">
+                <div style="min-width:0;flex:1">
+                  <strong style="font-size:14px">${escapeHtml(s.listName)}</strong>
+                  <div style="font-size:11px;color:var(--muted)">${dt.toLocaleDateString()} · ${dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+                <div class="score-badge" style="background:${bg}">${s.correct}/${s.total}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </section>
+    ` : ''}
+  `;
+}
+
+// ADD LIST ------------------------------------------------------
+function renderAddList() {
+  const editing = !!state.editingListId;
+  return `
+    <div class="form-wrap">
+      <div class="form-header">
+        <button class="btn-icon" data-action="cancel-form" aria-label="Back">${icon('back')}</button>
+        <h2>${editing ? 'Edit list' : 'New list'}</h2>
+      </div>
+
+      <label class="label">
+        <span>List name</span>
+        <input id="form-name" type="text" class="input" value="${escapeHtml(state.formName)}" />
+      </label>
+
+      <div>
+        <h3 style="margin:0 0 4px;font-size:14px">Add a word</h3>
+        <p style="margin:0 0 10px;font-size:11px;color:var(--muted)">
+          ✨ Type the 汉字 and tap Add — pinyin fills in for you
+        </p>
+        <div class="add-stack">
+          <input id="form-hanzi" type="text" class="input zh"
+            placeholder="汉字"
+            style="font-size:22px;text-align:center"
+            value="${escapeHtml(state.formHanzi)}" autofocus />
+          <button class="btn btn-primary btn-full" data-action="add-word" ${state.formHanzi.trim() ? '' : 'disabled'}>${icon('plus')} Add word</button>
+        </div>
+      </div>
+
+      ${state.formWords.length > 0 ? `
+        <div data-words-section>
+          <h3 style="margin:0 0 10px;font-size:14px">${state.formWords.length} word${state.formWords.length > 1 ? 's' : ''}</h3>
+          ${state.formWords.map((w, i) => `
+            <div class="word-row">
+              <div style="flex:1;min-width:0">
+                <div class="hanzi-big">${escapeHtml(w.hanzi)}</div>
+                <div class="pinyin-small">${escapeHtml(w.pinyin || '—')}</div>
+              </div>
+              <button class="btn-icon" data-action="remove-word" data-i="${i}" aria-label="Remove">${icon('x')}</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div class="sticky-footer">
+        <button class="btn btn-secondary" data-action="cancel-form">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" data-action="save-list" ${state.formWords.length === 0 ? 'disabled' : ''}>${icon('save')} Save list</button>
+      </div>
+    </div>
+  `;
+}
+
+// PRACTICE ------------------------------------------------------
+function renderPractice() {
+  const list = state.store.lists.find(l => l.id === state.activeListId);
+  if (!list) return '';
+  const word = list.words[state.pIdx];
+  const pct = ((state.pIdx + 1) / list.words.length) * 100;
+  return `
+    <div class="mini-header">
+      <button class="btn-icon" data-action="home" aria-label="Back">${icon('back')}</button>
+      <span class="label-text">${escapeHtml(list.name)}</span>
+      <span class="progress-pill">${state.pIdx + 1}/${list.words.length}</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+    <div class="card-pad">
+      <button class="big-hanzi-btn" data-action="speak" data-text="${escapeHtml(word.hanzi)}">
+        <span class="big-hanzi">${escapeHtml(word.hanzi)}</span>
+        <span style="position:absolute;top:14px;right:14px;opacity:0.4">${icon('volume')}</span>
+      </button>
+      <button class="reveal-btn" data-action="toggle-pinyin">
+        ${state.pShowPin ? icon('eye-off') : icon('eye')}
+        <span>${state.pShowPin ? escapeHtml(word.pinyin || '—') : 'Show pinyin'}</span>
+      </button>
+      <div class="stroke-hint">
+        ${icon('pencil')}
+        <span>Trace on paper · top → bottom, left → right</span>
+      </div>
+    </div>
+
+    <div class="sticky-footer">
+      <button class="btn-icon-lg" data-action="prev-practice" ${state.pIdx === 0 ? 'disabled' : ''} aria-label="Previous">${icon('back')}</button>
+      <button class="btn btn-secondary" style="flex:1" data-action="speak-slow" data-text="${escapeHtml(word.hanzi)}">${icon('volume')} Again</button>
+      ${state.pIdx < list.words.length - 1
+        ? `<button class="btn btn-primary" style="flex:1" data-action="next-practice">Next ${icon('chevron')}</button>`
+        : `<button class="btn btn-primary" style="flex:1" data-action="home">${icon('check')} Done</button>`}
+    </div>
+  `;
+}
+
+// TEST ------------------------------------------------------
+function renderTest() {
+  const list = state.store.lists.find(l => l.id === state.activeListId);
+  if (!list) return '';
+  const word = list.words[state.tOrder[state.tIdx]];
+  const pct = ((state.tIdx + 1) / state.tOrder.length) * 100;
+  return `
+    <div class="mini-header">
+      <button class="btn-icon" data-action="home" aria-label="Exit">${icon('back')}</button>
+      <span class="label-text">Test: ${escapeHtml(list.name)}</span>
+      <span class="progress-pill">${state.tIdx + 1}/${state.tOrder.length}</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+    <div class="mode-row">
+      <button class="mode-btn ${state.tMode === 'draw' ? 'active' : ''}" data-action="set-mode" data-mode="draw">${icon('pencil')} Draw on screen</button>
+      <button class="mode-btn ${state.tMode === 'self' ? 'active' : ''}" data-action="set-mode" data-mode="self">${icon('user-check')} Write on paper</button>
+    </div>
+
+    <div class="card-pad">
+      <p class="test-prompt">Tap to hear:</p>
+      <button class="big-speak-btn" data-action="speak" data-text="${escapeHtml(word.hanzi)}">
+        ${icon('volume')}
+        <span style="font-size:13px;font-weight:800;margin-top:6px">Listen</span>
+      </button>
+
+      ${state.tMode === 'draw' ? `
+        <div class="answer-area">
+          <div class="canvas-wrap">
+            <canvas id="draw-canvas" width="400" height="400"></canvas>
+            <button class="clear-btn" data-action="clear-canvas">${icon('rotate')} Clear</button>
+          </div>
+          ${renderSelfCheck(word)}
+        </div>
+      ` : `
+        <div class="answer-area">
+          <p style="font-size:13px;color:var(--muted);text-align:center;margin:0">Write on paper, then check below.</p>
+          ${renderSelfCheck(word)}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderSelfCheck(word) {
+  return `
+    <div class="self-check" id="self-check-panel">
+      <p style="margin:0 0 6px;font-weight:700;font-size:13px">Correct answer:</p>
+      <div class="big-answer zh">${state.tShowAnswer ? escapeHtml(word.hanzi) : '?'}</div>
+      ${state.tShowAnswer && word.pinyin ? `<p style="font-size:14px;color:var(--muted);margin:4px 0 0">${escapeHtml(word.pinyin)}</p>` : ''}
+      ${!state.tShowAnswer
+        ? `<button class="btn btn-secondary" style="margin-top:10px" data-action="reveal-answer">${icon('eye')} Reveal</button>`
+        : `<div class="self-check-btns">
+            <button class="mode-btn" style="background:var(--pink)" data-action="submit-answer" data-correct="false">${icon('x')} Wrong</button>
+            <button class="mode-btn" style="background:var(--mintCorrect)" data-action="submit-answer" data-correct="true">${icon('check')} Right!</button>
+          </div>`}
+    </div>
+  `;
+}
+
+// Patch only the reveal button so the practice view doesn't fully re-render on every show/hide.
+function patchPracticeReveal() {
+  const list = state.store.lists.find(l => l.id === state.activeListId);
+  if (!list) return render();
+  const word = list.words[state.pIdx];
+  const btn = document.querySelector('.reveal-btn');
+  if (!btn) return render();
+  btn.innerHTML = `${state.pShowPin ? icon('eye-off') : icon('eye')}<span>${state.pShowPin ? escapeHtml(word.pinyin || '—') : 'Show pinyin'}</span>`;
+}
+
+// Patch only the self-check panel, preserving the canvas drawing
+function patchSelfCheck() {
+  const list = state.store.lists.find(l => l.id === state.activeListId);
+  if (!list) return;
+  const word = list.words[state.tOrder[state.tIdx]];
+  const panel = document.getElementById('self-check-panel');
+  if (!panel) { render(); return; }
+  // Replace the panel's outerHTML with fresh version
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderSelfCheck(word);
+  panel.replaceWith(tmp.firstElementChild);
+}
+
+// RESULTS ------------------------------------------------------
+function renderResults() {
+  const s = state.lastScore;
+  if (!s) return '';
+  const pct = Math.round((s.correct / s.total) * 100);
+  const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🌟' : pct >= 50 ? '💪' : '📖';
+  const msg = pct >= 90 ? '太棒了！Outstanding!' :
+              pct >= 70 ? '很好！Well done!' :
+              pct >= 50 ? '加油！Keep going!' :
+              '没关系！Try again 💪';
+  return `
+    <div class="results-card">
+      <div class="emoji-big">${emoji}</div>
+      <h2>${s.correct} / ${s.total}</h2>
+      <p class="msg">${msg}</p>
+      <div class="result-details">
+        ${s.details.map(d => `
+          <div class="result-row ${d.correct ? 'correct' : 'wrong'}">
+            <span class="zh" style="font-size:22px;font-weight:800">${escapeHtml(d.word)}</span>
+            <span style="font-size:11px;color:var(--muted);flex:1;margin-left:8px">${escapeHtml(d.pinyin || '')}</span>
+            <span style="color:${d.correct ? '#2C7A2C' : '#C92A2A'}">${icon(d.correct ? 'check' : 'x')}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-secondary" data-action="home">${icon('home')} Home</button>
+        <button class="btn btn-secondary" data-action="retake">${icon('rotate')} Retry</button>
+        <button class="btn btn-primary" data-action="bonus">${icon('sparkles')} Bonus</button>
+      </div>
+    </div>
+  `;
+}
+
+// BONUS ------------------------------------------------------
+function renderBonus() {
+  const content = BONUS_LIBRARY[state.store.currentLevel] || BONUS_LIBRARY['lower-pri'];
+  const isIdioms = state.bonusTab === 'idioms';
+  const arr = [...(isIdioms ? content.idioms : content.words)];
+  let s = state.bonusSeed * 9301 + 49297;
+  const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  // Show up to 12 idioms or all 20 words
+  const sampled = arr.slice(0, isIdioms ? 12 : 20);
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+      <div style="min-width:0">
+        <h2 style="margin:0 0 4px;font-size:22px;display:flex;align-items:center;gap:6px">
+          <span style="color:var(--rust)">${icon('sparkles')}</span> Bonus learning
+        </h2>
+        <p style="color:var(--muted);margin:0;font-size:13px">${isIdioms ? 'Tap a card to see what it means' : 'Tap a card for pinyin · tap character to hear'}</p>
+      </div>
+      <button class="refresh-btn" data-action="refresh-bonus" aria-label="Refresh">${icon('refresh')} Refresh</button>
+    </div>
+
+    <div class="bonus-level-row">
+      ${LEVELS.map(lv => `
+        <button class="chip-btn ${state.store.currentLevel === lv.id ? 'active' : ''}" data-id="${lv.id}" data-action="set-level">
+          ${lv.emoji} ${lv.label}
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="tab-row">
+      <button class="tab ${!isIdioms ? 'active' : ''}" data-action="set-tab" data-tab="words">📚 Vocabulary</button>
+      <button class="tab ${isIdioms ? 'active' : ''}" data-action="set-tab" data-tab="idioms">🎋 成语 Idioms</button>
+    </div>
+
+    <div class="bonus-grid${isIdioms ? ' idiom-grid' : ''}">
+      ${sampled.map((item, i) => {
+        const key = `${state.store.currentLevel}-${state.bonusTab}-${state.bonusSeed}-${i}`;
+        const flipped = state.bonusFlipped[key];
+        const backContent = isIdioms
+          ? `<div class="bonus-pinyin" style="font-size:11px;margin-bottom:4px">${escapeHtml(item.pinyin)}</div>
+             <div class="bonus-meaning">${escapeHtml(item.meaning || '')}</div>`
+          : `<div class="bonus-hanzi">${escapeHtml(item.hanzi)}</div>
+             <div class="bonus-pinyin" style="font-size:14px;font-weight:700">${escapeHtml(item.pinyin)}</div>`;
+        return `
+          <div class="bonus-item ${flipped ? 'flipped' : ''}" data-action="flip-card" data-key="${key}">
+            <div class="bonus-face front">
+              <button class="speak-icon" data-action="speak" data-text="${escapeHtml(item.hanzi)}" data-stop="1" aria-label="Hear">${icon('volume')}</button>
+              <div class="bonus-hanzi">${escapeHtml(item.hanzi)}</div>
+              <div class="flip-hint">${isIdioms ? 'tap for meaning' : 'tap for pinyin'}</div>
+            </div>
+            <div class="bonus-face back">
+              ${backContent}
+              <div class="flip-hint">tap back</div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <button class="btn btn-secondary" style="margin-top:8px;justify-content:center" data-action="refresh-bonus">${icon('refresh')} Show me different ones</button>
+  `;
+}
+
+// ============================================================
+// Events
+// ============================================================
+// Attach click delegate ONCE at startup (not on every render!)
+document.body.addEventListener('click', handleClick);
+
+function bindEvents() {
+  // Input bindings need re-attaching each render since inputs are recreated
+  const nameInput = $('#form-name');
+  if (nameInput) {
+    nameInput.addEventListener('input', e => { state.formName = e.target.value; });
+  }
+  const hanziInput = $('#form-hanzi');
+  if (hanziInput) {
+    hanziInput.addEventListener('input', e => {
+      state.formHanzi = e.target.value;
+      const btn = document.querySelector('[data-action="add-word"]');
+      if (btn) btn.disabled = !state.formHanzi.trim();
+    });
+    hanziInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && state.formHanzi.trim()) addWord();
+    });
+  }
+}
+
+function handleClick(e) {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+  if (target.dataset.stop) e.stopPropagation();
+
+  switch (action) {
+    case 'home': navigate('home'); break;
+    case 'set-level': {
+      state.store.currentLevel = target.dataset.id;
+      saveStore();
+      render();
+      break;
+    }
+    case 'new-list':
+      state.editingListId = null;
+      navigate('addList');
+      break;
+    case 'edit-list':
+      state.editingListId = target.dataset.id;
+      navigate('addList');
+      break;
+    case 'delete-list': {
+      const list = state.store.lists.find(l => l.id === target.dataset.id);
+      if (list && confirm(`Delete "${list.name}"?`)) {
+        state.store.lists = state.store.lists.filter(l => l.id !== target.dataset.id);
+        saveStore();
+        render();
+      }
+      break;
+    }
+    case 'practice':
+      state.activeListId = target.dataset.id;
+      navigate('practice');
+      break;
+    case 'test':
+      state.activeListId = target.dataset.id;
+      navigate('test');
+      break;
+    case 'bonus': navigate('bonus'); break;
+    case 'cancel-form':
+      state.editingListId = null;
+      navigate('home');
+      break;
+    case 'add-word': addWord(); break;
+    case 'remove-word':
+      state.formWords.splice(parseInt(target.dataset.i), 1);
+      render();
+      break;
+    case 'save-list': saveList(); break;
+    case 'speak': speakChinese(target.dataset.text); break;
+    case 'speak-slow': speakChinese(target.dataset.text, 0.7); break;
+    case 'toggle-pinyin':
+      state.pShowPin = !state.pShowPin;
+      patchPracticeReveal();
+      break;
+    case 'prev-practice':
+      if (state.pIdx > 0) { state.pIdx--; state.pShowPin = false; render(); }
+      break;
+    case 'next-practice': {
+      const list = state.store.lists.find(l => l.id === state.activeListId);
+      if (state.pIdx < list.words.length - 1) {
+        state.pIdx++; state.pShowPin = false; render();
+      }
+      break;
+    }
+    case 'set-mode':
+      state.tMode = target.dataset.mode;
+      state.tShowAnswer = false;
+      render();
+      break;
+    case 'clear-canvas': clearCanvas(); break;
+    case 'reveal-answer':
+      state.tShowAnswer = true;
+      patchSelfCheck();
+      break;
+    case 'submit-answer': submitAnswer(target.dataset.correct === 'true'); break;
+    case 'retake': navigate('test', { activeListId: state.activeListId }); break;
+    case 'refresh-bonus':
+      state.bonusSeed++;
+      state.bonusFlipped = {};
+      render();
+      break;
+    case 'set-tab':
+      state.bonusTab = target.dataset.tab;
+      state.bonusFlipped = {};
+      render();
+      break;
+    case 'flip-card': {
+      const k = target.dataset.key;
+      state.bonusFlipped[k] = !state.bonusFlipped[k];
+      target.classList.toggle('flipped');
+      break;
+    }
+  }
+}
+
+function addWord() {
+  const h = state.formHanzi.trim();
+  if (!h) return;
+  const newWord = { hanzi: h, pinyin: lookupPinyin(h) };
+  state.formWords.push(newWord);
+  state.formHanzi = '';
+
+  // Patch DOM in place so the input stays focused without a setTimeout dance.
+  const wrap = document.querySelector('.form-wrap');
+  if (!wrap) { render(); return; }
+
+  const input = $('#form-hanzi');
+  if (input) input.value = '';
+  const addBtn = wrap.querySelector('[data-action="add-word"]');
+  if (addBtn) addBtn.disabled = true;
+  const saveBtn = wrap.querySelector('[data-action="save-list"]');
+  if (saveBtn) saveBtn.disabled = false;
+
+  const newIndex = state.formWords.length - 1;
+  const rowHtml = `<div class="word-row">
+    <div style="flex:1;min-width:0">
+      <div class="hanzi-big">${escapeHtml(newWord.hanzi)}</div>
+      <div class="pinyin-small">${escapeHtml(newWord.pinyin || '—')}</div>
+    </div>
+    <button class="btn-icon" data-action="remove-word" data-i="${newIndex}" aria-label="Remove">${icon('x')}</button>
+  </div>`;
+
+  let section = wrap.querySelector('[data-words-section]');
+  if (!section) {
+    section = document.createElement('div');
+    section.setAttribute('data-words-section', '');
+    section.innerHTML = `<h3 style="margin:0 0 10px;font-size:14px"></h3>`;
+    wrap.insertBefore(section, wrap.querySelector('.sticky-footer'));
+  }
+  section.querySelector('h3').textContent =
+    `${state.formWords.length} word${state.formWords.length > 1 ? 's' : ''}`;
+  section.insertAdjacentHTML('beforeend', rowHtml);
+
+  if (input) input.focus();
+}
+
+function saveList() {
+  if (state.formWords.length === 0) return;
+  const list = {
+    id: state.editingListId || `list-${Date.now()}`,
+    name: state.formName || `Week of ${new Date().toLocaleDateString()}`,
+    words: state.formWords,
+    level: state.store.currentLevel,
+    createdAt: new Date().toISOString(),
+  };
+  const exists = state.store.lists.find(l => l.id === list.id);
+  if (exists) {
+    state.store.lists = state.store.lists.map(l => l.id === list.id ? list : l);
+  } else {
+    state.store.lists.push(list);
+  }
+  saveStore();
+  state.editingListId = null;
+  navigate('home');
+}
+
+function submitAnswer(correct) {
+  const list = state.store.lists.find(l => l.id === state.activeListId);
+  const word = list.words[state.tOrder[state.tIdx]];
+  state.tResults.push({ word: word.hanzi, pinyin: word.pinyin, correct });
+  state.tShowAnswer = false;
+  if (state.tIdx < state.tOrder.length - 1) {
+    state.tIdx++;
+    render();
+  } else {
+    state.lastScore = {
+      listId: list.id,
+      listName: list.name,
+      total: state.tResults.length,
+      correct: state.tResults.filter(r => r.correct).length,
+      details: [...state.tResults],
+    };
+    state.store.scores.push({ ...state.lastScore, date: new Date().toISOString() });
+    saveStore();
+    state.view = 'results';
+    render();
+  }
+}
+
+// ============================================================
+// Canvas
+// ============================================================
+const canvasState = { drawing: false, lastX: 0, lastY: 0, cleanup: null };
+
+function initCanvas() {
+  const canvas = document.getElementById('draw-canvas');
+  if (!canvas) return;
+  drawGrid(canvas);
+
+  if (canvasState.cleanup) {
+    canvasState.cleanup();
+    canvasState.cleanup = null;
+  }
+
+  // Cache the 2D context — getContext('2d') is cheap but not free, and we hit it per move event.
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#2C1810';
+  ctx.fillStyle = '#2C1810';
+
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const onDown = (e) => {
+    e.preventDefault();
+    if (typeof canvas.setPointerCapture === 'function') {
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    canvasState.drawing = true;
+    const p = getPos(e);
+    canvasState.lastX = p.x;
+    canvasState.lastY = p.y;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const onMove = (e) => {
+    if (!canvasState.drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(canvasState.lastX, canvasState.lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    canvasState.lastX = p.x;
+    canvasState.lastY = p.y;
+  };
+
+  const onUp = () => { canvasState.drawing = false; };
+
+  // Pointer Events unify mouse + touch + pen.
+  // CSS `touch-action: none` on the canvas prevents page scroll during drag, so no document-level blocker needed.
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointermove', onMove);
+  canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('pointerleave', onUp);
+
+  canvasState.cleanup = () => {
+    canvas.removeEventListener('pointerdown', onDown);
+    canvas.removeEventListener('pointermove', onMove);
+    canvas.removeEventListener('pointerup', onUp);
+    canvas.removeEventListener('pointercancel', onUp);
+    canvas.removeEventListener('pointerleave', onUp);
+    canvasState.drawing = false;
+  };
+}
+
+function drawGrid(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.fillStyle = '#FFFBF2';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#F0D8B0';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2);
+  ctx.moveTo(0, 0); ctx.lineTo(canvas.width, canvas.height);
+  ctx.moveTo(canvas.width, 0); ctx.lineTo(0, canvas.height);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function clearCanvas() {
+  const c = document.getElementById('draw-canvas');
+  if (c) drawGrid(c);
+}
+
+// ============================================================
+// Boot
+// ============================================================
+render();
+</script>
+</body>
+</html>
