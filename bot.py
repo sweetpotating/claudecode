@@ -30,7 +30,8 @@ logging.basicConfig(
 )
 log = logging.getLogger("bot")
 
-COMPOSIO_BASE = "https://backend.composio.dev/api/v2"
+COMPOSIO_API_VERSIONS = ["v3", "v1", "v2"]
+COMPOSIO_BASE = None  # resolved at startup
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 MODEL = "claude-sonnet-4-6"
@@ -104,9 +105,35 @@ def _add_hist(cid: int, role: str, content: str):
 
 # --------------- Strava via Composio ---------------
 
+def _resolve_composio_base() -> str:
+    global COMPOSIO_BASE
+    if COMPOSIO_BASE:
+        return COMPOSIO_BASE
+    for ver in COMPOSIO_API_VERSIONS:
+        url = f"https://backend.composio.dev/api/{ver}/actions"
+        try:
+            with httpx.Client(timeout=10) as client:
+                resp = client.get(
+                    url,
+                    headers={"x-api-key": COMPOSIO_API_KEY},
+                    params={"appNames": "strava", "limit": 1},
+                )
+                log.info("Trying %s -> %s", url, resp.status_code)
+                if resp.status_code < 400:
+                    COMPOSIO_BASE = f"https://backend.composio.dev/api/{ver}"
+                    log.info("Using Composio API %s", ver)
+                    return COMPOSIO_BASE
+        except Exception as e:
+            log.warning("API %s probe failed: %s", ver, e)
+    COMPOSIO_BASE = "https://backend.composio.dev/api/v1"
+    log.warning("No API version responded, defaulting to v1")
+    return COMPOSIO_BASE
+
+
 def _composio_execute(action: str, params: dict | None = None) -> dict:
+    base = _resolve_composio_base()
     entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
-    url = f"{COMPOSIO_BASE}/actions/{action}/execute"
+    url = f"{base}/actions/{action}/execute"
     body = {"input": params or {}, "entityId": entity}
     log.info("Composio request: %s entity=%s params=%s", action, entity, params)
     try:
@@ -156,14 +183,15 @@ def fetch_activity_detail(activity_id: int) -> dict:
 
 
 def _composio_find_actions() -> list[dict]:
+    base = _resolve_composio_base()
     try:
         with httpx.Client(timeout=30) as client:
             resp = client.get(
-                f"{COMPOSIO_BASE}/actions",
+                f"{base}/actions",
                 headers={"x-api-key": COMPOSIO_API_KEY},
                 params={"appNames": "strava", "limit": 50},
             )
-            log.info("Actions discovery %s: %s", resp.status_code, resp.text[:500])
+            log.info("Actions discovery %s: %s", resp.status_code, resp.text[:1000])
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "items" in data:
@@ -295,7 +323,8 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reply(update, "Running diagnostics...")
     entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
-    lines = [f"Entity ID: `{entity}`", f"API base: `{COMPOSIO_BASE}`"]
+    base = _resolve_composio_base()
+    lines = [f"Entity ID: `{entity}`", f"API base: `{base}`"]
 
     actions = _composio_find_actions()
     if actions and "error" not in actions[0]:
