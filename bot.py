@@ -19,32 +19,26 @@ from telegram.ext import (
 import httpx
 import anthropic
 
+try:
+    from composio import ComposioToolSet
+    HAS_COMPOSIO_SDK = True
+except ImportError:
+    HAS_COMPOSIO_SDK = False
+
 load_dotenv()
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 COMPOSIO_API_KEY = os.environ["COMPOSIO_API_KEY"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+COMPOSIO_ENTITY_ID = os.environ.get("COMPOSIO_ENTITY_ID", "default")
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
 )
 log = logging.getLogger("bot")
 
-COMPOSIO_API_BASES = [
-    "https://api.composio.dev/api/v1",
-    "https://api.composio.dev/api/v2",
-    "https://api.composio.dev/api/v3",
-    "https://api.composio.dev/v1",
-    "https://api.composio.dev/v2",
-    "https://api.composio.dev/v3",
-    "https://connect.composio.dev/api/v1",
-    "https://connect.composio.dev/api/v2",
-    "https://backend.composio.dev/api/v3",
-    "https://backend.composio.dev/api/v1",
-    "https://backend.composio.dev/api/v2",
-]
-COMPOSIO_BASE = None
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+toolset = ComposioToolSet(api_key=COMPOSIO_API_KEY) if HAS_COMPOSIO_SDK else None
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 1500
@@ -115,66 +109,40 @@ def _add_hist(cid: int, role: str, content: str):
         _history[cid] = _history[cid][-MAX_HISTORY:]
 
 
-# --------------- Strava via Composio ---------------
-
-def _resolve_composio_base() -> str:
-    global COMPOSIO_BASE
-    if COMPOSIO_BASE:
-        return COMPOSIO_BASE
-    results = []
-    for base in COMPOSIO_API_BASES:
-        url = f"{base}/actions"
-        try:
-            with httpx.Client(timeout=10) as client:
-                resp = client.get(
-                    url,
-                    headers={"x-api-key": COMPOSIO_API_KEY},
-                    params={"appNames": "strava", "limit": 1},
-                )
-                results.append(f"{base} -> {resp.status_code}")
-                log.info("Probe %s -> %s", base, resp.status_code)
-                if resp.status_code < 400:
-                    COMPOSIO_BASE = base
-                    log.info("Using Composio API: %s", base)
-                    return COMPOSIO_BASE
-        except Exception as e:
-            results.append(f"{base} -> {e}")
-            log.warning("Probe %s failed: %s", base, e)
-    log.warning("No Composio API responded. Results: %s", results)
-    COMPOSIO_BASE = COMPOSIO_API_BASES[0]
-    return COMPOSIO_BASE
-
+# --------------- Strava via Composio SDK ---------------
 
 def _composio_execute(action: str, params: dict | None = None) -> dict:
-    base = _resolve_composio_base()
-    entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
-    url = f"{base}/actions/{action}/execute"
-    body = {"input": params or {}, "entityId": entity}
-    log.info("Composio request: %s entity=%s params=%s", action, entity, params)
+    if not toolset:
+        return {"error": "Composio SDK not installed"}
+    log.info("Composio SDK: %s entity=%s params=%s", action, COMPOSIO_ENTITY_ID, params)
     try:
-        with httpx.Client(timeout=30) as client:
-            resp = client.post(
-                url,
-                headers={"x-api-key": COMPOSIO_API_KEY},
-                json=body,
-            )
-            log.info("Composio response %s: %s", resp.status_code, resp.text[:500])
-            resp.raise_for_status()
-            return resp.json()
+        result = toolset.execute_action(
+            action=action,
+            params=params or {},
+            entity_id=COMPOSIO_ENTITY_ID,
+        )
+        log.info("Composio SDK result type=%s keys=%s",
+                 type(result).__name__,
+                 list(result.keys()) if isinstance(result, dict) else "N/A")
+        if isinstance(result, dict):
+            return result
+        return {"data": result}
     except Exception as e:
-        log.error("Composio %s failed: %s", action, e)
+        log.error("Composio SDK %s failed: %s", action, e)
         return {"error": str(e)}
 
 
 def _extract_data(raw: dict):
     if "error" in raw:
         return None
-    for key in ("data", "response_data"):
-        if key in raw:
+    for key in ("data", "response_data", "successfull"):
+        if key in raw and key != "successfull":
             d = raw[key]
             if isinstance(d, dict) and "data" in d:
                 return d["data"]
             return d
+    if raw.get("successfull") and "data" in raw:
+        return raw["data"]
     return raw
 
 
@@ -195,28 +163,6 @@ def fetch_activity_detail(activity_id: int) -> dict:
     raw = _composio_execute("STRAVA_GET_ACTIVITY_BY_ID", {"id": activity_id})
     data = _extract_data(raw)
     return data if data else {"error": "no data"}
-
-
-def _composio_find_actions() -> list[dict]:
-    base = _resolve_composio_base()
-    try:
-        with httpx.Client(timeout=30) as client:
-            resp = client.get(
-                f"{base}/actions",
-                headers={"x-api-key": COMPOSIO_API_KEY},
-                params={"appNames": "strava", "limit": 50},
-            )
-            log.info("Actions discovery %s: %s", resp.status_code, resp.text[:1000])
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict) and "items" in data:
-                return data["items"]
-            if isinstance(data, list):
-                return data
-            return [data]
-    except Exception as e:
-        log.error("Action discovery failed: %s", e)
-        return [{"error": str(e)}]
 
 
 # --------------- Formatting helpers ---------------
@@ -336,43 +282,37 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await _reply(update, "Probing Composio API endpoints...")
-    entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
+    await _reply(update, "Running diagnostics...")
+    lines = [
+        f"Entity: `{COMPOSIO_ENTITY_ID}`",
+        f"SDK available: `{HAS_COMPOSIO_SDK}`",
+    ]
 
-    global COMPOSIO_BASE
-    COMPOSIO_BASE = None  # force re-probe
+    if not toolset:
+        lines.append("Composio SDK not loaded!")
+        await _reply(update, "\n".join(lines))
+        return
 
-    probe_results = []
-    for base in COMPOSIO_API_BASES:
-        url = f"{base}/actions"
-        try:
-            with httpx.Client(timeout=8) as client:
-                resp = client.get(
-                    url,
-                    headers={"x-api-key": COMPOSIO_API_KEY},
-                    params={"appNames": "strava", "limit": 1},
-                )
-                probe_results.append(f"`{base}` -> {resp.status_code}")
-                if resp.status_code < 400 and not COMPOSIO_BASE:
-                    COMPOSIO_BASE = base
-        except Exception as e:
-            err_short = str(e)[:60]
-            probe_results.append(f"`{base}` -> {err_short}")
-
-    lines = [f"Entity: `{entity}`\n", "Probe results:"]
-    lines.extend(probe_results)
-
-    if COMPOSIO_BASE:
-        lines.append(f"\nUsing: `{COMPOSIO_BASE}`")
-        actions = _composio_find_actions()
-        if actions and "error" not in (actions[0] if isinstance(actions[0], dict) else {}):
-            names = [a.get("name", a.get("enum", "?")) for a in actions[:10]]
-            lines.append(f"Strava actions: {len(actions)}")
-            for n in names:
-                lines.append(f"  `{n}`")
+    raw = _composio_execute(
+        "STRAVA_GET_LOGGED_IN_ATHLETE_ACTIVITIES",
+        {"per_page": 1, "page": 1},
+    )
+    lines.append(f"Result keys: `{list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__}`")
+    if "error" in raw:
+        lines.append(f"Error: `{str(raw['error'])[:300]}`")
     else:
-        lines.append("\nNo working API found!")
-        COMPOSIO_BASE = COMPOSIO_API_BASES[0]
+        data = _extract_data(raw)
+        if data:
+            lines.append(f"Data type: `{type(data).__name__}`")
+            if isinstance(data, list):
+                lines.append(f"Activities found: {len(data)}")
+                if data:
+                    first = data[0]
+                    lines.append(f"First: `{first.get('name', '?')}` - {first.get('type', '?')}")
+            else:
+                lines.append(f"Data preview: `{str(data)[:200]}`")
+        else:
+            lines.append(f"Full response: `{str(raw)[:300]}`")
 
     await _reply(update, "\n".join(lines))
 
