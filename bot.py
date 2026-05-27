@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RUN FASTA FATTI — Strava Telegram bot powered by Composio + Claude."""
+"""RUN FASTA FATTI — Strava Telegram bot powered by Claude."""
 
 import os
 import json
@@ -19,18 +19,13 @@ from telegram.ext import (
 import httpx
 import anthropic
 
-try:
-    from composio import ComposioToolSet
-    HAS_COMPOSIO_SDK = True
-except ImportError:
-    HAS_COMPOSIO_SDK = False
-
 load_dotenv()
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-COMPOSIO_API_KEY = os.environ["COMPOSIO_API_KEY"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
-COMPOSIO_ENTITY_ID = os.environ.get("COMPOSIO_ENTITY_ID", "default")
+STRAVA_CLIENT_ID = os.environ["STRAVA_CLIENT_ID"]
+STRAVA_CLIENT_SECRET = os.environ["STRAVA_CLIENT_SECRET"]
+STRAVA_REFRESH_TOKEN = os.environ["STRAVA_REFRESH_TOKEN"]
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -38,7 +33,6 @@ logging.basicConfig(
 log = logging.getLogger("bot")
 
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-toolset = ComposioToolSet(api_key=COMPOSIO_API_KEY) if HAS_COMPOSIO_SDK else None
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 1500
@@ -47,6 +41,7 @@ DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
 GOALS_FILE = DATA_DIR / "goals.json"
 NOTES_FILE = DATA_DIR / "notes.json"
+TOKEN_FILE = DATA_DIR / "strava_token.json"
 
 SYSTEM_PROMPT = (
     "You are RUN FASTA FATTI, a friendly and knowledgeable running coach Telegram bot. "
@@ -109,60 +104,78 @@ def _add_hist(cid: int, role: str, content: str):
         _history[cid] = _history[cid][-MAX_HISTORY:]
 
 
-# --------------- Strava via Composio SDK ---------------
+# --------------- Strava API (direct) ---------------
 
-def _composio_execute(action: str, params: dict | None = None) -> dict:
-    if not toolset:
-        return {"error": "Composio SDK not installed"}
-    log.info("Composio SDK: %s entity=%s params=%s", action, COMPOSIO_ENTITY_ID, params)
+_strava_token: dict = {}
+
+def _get_access_token() -> str:
+    global _strava_token
+    now = datetime.now(timezone.utc).timestamp()
+
+    if _strava_token.get("access_token") and _strava_token.get("expires_at", 0) > now + 60:
+        return _strava_token["access_token"]
+
+    saved = _load(TOKEN_FILE, {})
+    if saved.get("access_token") and saved.get("expires_at", 0) > now + 60:
+        _strava_token = saved
+        return saved["access_token"]
+
+    log.info("Refreshing Strava access token...")
     try:
-        result = toolset.execute_action(
-            action=action,
-            params=params or {},
-            entity_id=COMPOSIO_ENTITY_ID,
-        )
-        log.info("Composio SDK result type=%s keys=%s",
-                 type(result).__name__,
-                 list(result.keys()) if isinstance(result, dict) else "N/A")
-        if isinstance(result, dict):
-            return result
-        return {"data": result}
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(
+                "https://www.strava.com/oauth/token",
+                data={
+                    "client_id": STRAVA_CLIENT_ID,
+                    "client_secret": STRAVA_CLIENT_SECRET,
+                    "grant_type": "refresh_token",
+                    "refresh_token": STRAVA_REFRESH_TOKEN,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            _strava_token = {
+                "access_token": data["access_token"],
+                "refresh_token": data.get("refresh_token", STRAVA_REFRESH_TOKEN),
+                "expires_at": data["expires_at"],
+            }
+            _save(TOKEN_FILE, _strava_token)
+            log.info("Strava token refreshed, expires at %s", data["expires_at"])
+            return data["access_token"]
     except Exception as e:
-        log.error("Composio SDK %s failed: %s", action, e)
-        return {"error": str(e)}
+        log.error("Strava token refresh failed: %s", e)
+        raise
 
 
-def _extract_data(raw: dict):
-    if "error" in raw:
-        return None
-    for key in ("data", "response_data", "successfull"):
-        if key in raw and key != "successfull":
-            d = raw[key]
-            if isinstance(d, dict) and "data" in d:
-                return d["data"]
-            return d
-    if raw.get("successfull") and "data" in raw:
-        return raw["data"]
-    return raw
+def _strava_get(endpoint: str, params: dict | None = None) -> dict | list:
+    token = _get_access_token()
+    with httpx.Client(timeout=20) as client:
+        resp = client.get(
+            f"https://www.strava.com/api/v3{endpoint}",
+            headers={"Authorization": f"Bearer {token}"},
+            params=params or {},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
 
 def fetch_activities(n: int = 1) -> list[dict]:
-    raw = _composio_execute(
-        "STRAVA_GET_LOGGED_IN_ATHLETE_ACTIVITIES",
-        {"per_page": n, "page": 1},
-    )
-    data = _extract_data(raw)
-    if data is None:
+    try:
+        data = _strava_get("/athlete/activities", {"per_page": n, "page": 1})
+        if isinstance(data, list):
+            return data
+        return [data] if data else []
+    except Exception as e:
+        log.error("Strava fetch activities failed: %s", e)
         return []
-    if isinstance(data, list):
-        return data
-    return [data] if data else []
 
 
 def fetch_activity_detail(activity_id: int) -> dict:
-    raw = _composio_execute("STRAVA_GET_ACTIVITY_BY_ID", {"id": activity_id})
-    data = _extract_data(raw)
-    return data if data else {"error": "no data"}
+    try:
+        return _strava_get(f"/activities/{activity_id}")
+    except Exception as e:
+        log.error("Strava fetch activity %s failed: %s", activity_id, e)
+        return {"error": str(e)}
 
 
 # --------------- Formatting helpers ---------------
@@ -256,7 +269,7 @@ async def _reply(update: Update, text: str):
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reply(
         update,
-        "Hey! I'm *RUN FASTA FATTI* 🏃\n\n"
+        "Hey! I'm *RUN FASTA FATTI*\n\n"
         "I've got your Strava data and I'm ready to help.\n\n"
         "*Quick lookup*\n"
         "/latest — latest activity\n"
@@ -283,36 +296,27 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reply(update, "Running diagnostics...")
-    lines = [
-        f"Entity: `{COMPOSIO_ENTITY_ID}`",
-        f"SDK available: `{HAS_COMPOSIO_SDK}`",
-    ]
-
-    if not toolset:
-        lines.append("Composio SDK not loaded!")
+    lines = ["*Strava Direct API*"]
+    try:
+        token = _get_access_token()
+        lines.append(f"Token: `{token[:8]}...` (valid)")
+    except Exception as e:
+        lines.append(f"Token error: `{str(e)[:200]}`")
         await _reply(update, "\n".join(lines))
         return
 
-    raw = _composio_execute(
-        "STRAVA_GET_LOGGED_IN_ATHLETE_ACTIVITIES",
-        {"per_page": 1, "page": 1},
-    )
-    lines.append(f"Result keys: `{list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__}`")
-    if "error" in raw:
-        lines.append(f"Error: `{str(raw['error'])[:300]}`")
-    else:
-        data = _extract_data(raw)
-        if data:
-            lines.append(f"Data type: `{type(data).__name__}`")
-            if isinstance(data, list):
-                lines.append(f"Activities found: {len(data)}")
-                if data:
-                    first = data[0]
-                    lines.append(f"First: `{first.get('name', '?')}` - {first.get('type', '?')}")
-            else:
-                lines.append(f"Data preview: `{str(data)[:200]}`")
+    try:
+        activities = fetch_activities(1)
+        if activities:
+            a = activities[0]
+            lines.append(f"Latest: *{a.get('name', '?')}*")
+            lines.append(f"Type: {a.get('type', '?')}  |  Date: {a.get('start_date_local', '?')[:10]}")
+            lines.append(f"Distance: {fmt_dist(a.get('distance', 0))}")
+            lines.append("\nStrava connection is working!")
         else:
-            lines.append(f"Full response: `{str(raw)[:300]}`")
+            lines.append("No activities found (empty response)")
+    except Exception as e:
+        lines.append(f"Fetch error: `{str(e)[:200]}`")
 
     await _reply(update, "\n".join(lines))
 
@@ -321,7 +325,7 @@ async def cmd_latest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reply(update, "Fetching your latest activity...")
     activities = fetch_activities(1)
     if not activities:
-        await _reply(update, "Couldn't fetch activities. Is your Strava connected in Composio?")
+        await _reply(update, "No activities found. Check /debug for connection status.")
         return
     await _reply(update, fmt_activity(activities[0]))
 
@@ -330,7 +334,7 @@ async def cmd_last5(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reply(update, "Fetching your last 5 activities...")
     activities = fetch_activities(5)
     if not activities:
-        await _reply(update, "Couldn't fetch activities. Is your Strava connected in Composio?")
+        await _reply(update, "No activities found. Check /debug for connection status.")
         return
     text = "\n\n".join(fmt_activity(a) for a in activities)
     await _reply(update, text)
