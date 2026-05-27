@@ -105,13 +105,18 @@ def _add_hist(cid: int, role: str, content: str):
 # --------------- Strava via Composio ---------------
 
 def _composio_execute(action: str, params: dict | None = None) -> dict:
+    entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
+    url = f"{COMPOSIO_BASE}/actions/{action}/execute"
+    body = {"input": params or {}, "entityId": entity}
+    log.info("Composio request: %s entity=%s params=%s", action, entity, params)
     try:
         with httpx.Client(timeout=30) as client:
             resp = client.post(
-                f"{COMPOSIO_BASE}/actions/{action}/execute",
+                url,
                 headers={"x-api-key": COMPOSIO_API_KEY},
-                json={"input": params or {}, "entityId": os.environ.get("COMPOSIO_ENTITY_ID", "default")},
+                json=body,
             )
+            log.info("Composio response %s: %s", resp.status_code, resp.text[:500])
             resp.raise_for_status()
             return resp.json()
     except Exception as e:
@@ -148,6 +153,27 @@ def fetch_activity_detail(activity_id: int) -> dict:
     raw = _composio_execute("STRAVA_GET_ACTIVITY_BY_ID", {"id": activity_id})
     data = _extract_data(raw)
     return data if data else {"error": "no data"}
+
+
+def _composio_find_actions() -> list[dict]:
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(
+                f"{COMPOSIO_BASE}/actions",
+                headers={"x-api-key": COMPOSIO_API_KEY},
+                params={"appNames": "strava", "limit": 50},
+            )
+            log.info("Actions discovery %s: %s", resp.status_code, resp.text[:500])
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and "items" in data:
+                return data["items"]
+            if isinstance(data, list):
+                return data
+            return [data]
+    except Exception as e:
+        log.error("Action discovery failed: %s", e)
+        return [{"error": str(e)}]
 
 
 # --------------- Formatting helpers ---------------
@@ -264,6 +290,31 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "/reset — clear conversation history\n\n"
         "Or just chat — I have your Strava data in context.",
     )
+
+
+async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _reply(update, "Running diagnostics...")
+    entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
+    lines = [f"Entity ID: `{entity}`", f"API base: `{COMPOSIO_BASE}`"]
+
+    actions = _composio_find_actions()
+    if actions and "error" not in actions[0]:
+        names = [a.get("name", a.get("enum", "?")) for a in actions[:15]]
+        lines.append(f"\nStrava actions found: {len(actions)}")
+        for n in names:
+            lines.append(f"  `{n}`")
+    else:
+        lines.append(f"\nAction discovery failed: {actions}")
+
+    raw = _composio_execute(
+        "STRAVA_GET_LOGGED_IN_ATHLETE_ACTIVITIES",
+        {"per_page": 1, "page": 1},
+    )
+    lines.append(f"\nFetch test result keys: {list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__}")
+    if "error" in raw:
+        lines.append(f"Error: `{raw['error'][:200]}`")
+
+    await _reply(update, "\n".join(lines))
 
 
 async def cmd_latest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -554,6 +605,7 @@ def main():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_start))
+    app.add_handler(CommandHandler("debug", cmd_debug))
     app.add_handler(CommandHandler("latest", cmd_latest))
     app.add_handler(CommandHandler("last5", cmd_last5))
     app.add_handler(CommandHandler("week", cmd_week))
