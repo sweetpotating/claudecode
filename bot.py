@@ -30,8 +30,20 @@ logging.basicConfig(
 )
 log = logging.getLogger("bot")
 
-COMPOSIO_API_VERSIONS = ["v3", "v1", "v2"]
-COMPOSIO_BASE = None  # resolved at startup
+COMPOSIO_API_BASES = [
+    "https://api.composio.dev/api/v1",
+    "https://api.composio.dev/api/v2",
+    "https://api.composio.dev/api/v3",
+    "https://api.composio.dev/v1",
+    "https://api.composio.dev/v2",
+    "https://api.composio.dev/v3",
+    "https://connect.composio.dev/api/v1",
+    "https://connect.composio.dev/api/v2",
+    "https://backend.composio.dev/api/v3",
+    "https://backend.composio.dev/api/v1",
+    "https://backend.composio.dev/api/v2",
+]
+COMPOSIO_BASE = None
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 MODEL = "claude-sonnet-4-6"
@@ -109,8 +121,9 @@ def _resolve_composio_base() -> str:
     global COMPOSIO_BASE
     if COMPOSIO_BASE:
         return COMPOSIO_BASE
-    for ver in COMPOSIO_API_VERSIONS:
-        url = f"https://backend.composio.dev/api/{ver}/actions"
+    results = []
+    for base in COMPOSIO_API_BASES:
+        url = f"{base}/actions"
         try:
             with httpx.Client(timeout=10) as client:
                 resp = client.get(
@@ -118,15 +131,17 @@ def _resolve_composio_base() -> str:
                     headers={"x-api-key": COMPOSIO_API_KEY},
                     params={"appNames": "strava", "limit": 1},
                 )
-                log.info("Trying %s -> %s", url, resp.status_code)
+                results.append(f"{base} -> {resp.status_code}")
+                log.info("Probe %s -> %s", base, resp.status_code)
                 if resp.status_code < 400:
-                    COMPOSIO_BASE = f"https://backend.composio.dev/api/{ver}"
-                    log.info("Using Composio API %s", ver)
+                    COMPOSIO_BASE = base
+                    log.info("Using Composio API: %s", base)
                     return COMPOSIO_BASE
         except Exception as e:
-            log.warning("API %s probe failed: %s", ver, e)
-    COMPOSIO_BASE = "https://backend.composio.dev/api/v1"
-    log.warning("No API version responded, defaulting to v1")
+            results.append(f"{base} -> {e}")
+            log.warning("Probe %s failed: %s", base, e)
+    log.warning("No Composio API responded. Results: %s", results)
+    COMPOSIO_BASE = COMPOSIO_API_BASES[0]
     return COMPOSIO_BASE
 
 
@@ -321,27 +336,43 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await _reply(update, "Running diagnostics...")
+    await _reply(update, "Probing Composio API endpoints...")
     entity = os.environ.get("COMPOSIO_ENTITY_ID", "default")
-    base = _resolve_composio_base()
-    lines = [f"Entity ID: `{entity}`", f"API base: `{base}`"]
 
-    actions = _composio_find_actions()
-    if actions and "error" not in actions[0]:
-        names = [a.get("name", a.get("enum", "?")) for a in actions[:15]]
-        lines.append(f"\nStrava actions found: {len(actions)}")
-        for n in names:
-            lines.append(f"  `{n}`")
+    global COMPOSIO_BASE
+    COMPOSIO_BASE = None  # force re-probe
+
+    probe_results = []
+    for base in COMPOSIO_API_BASES:
+        url = f"{base}/actions"
+        try:
+            with httpx.Client(timeout=8) as client:
+                resp = client.get(
+                    url,
+                    headers={"x-api-key": COMPOSIO_API_KEY},
+                    params={"appNames": "strava", "limit": 1},
+                )
+                probe_results.append(f"`{base}` -> {resp.status_code}")
+                if resp.status_code < 400 and not COMPOSIO_BASE:
+                    COMPOSIO_BASE = base
+        except Exception as e:
+            err_short = str(e)[:60]
+            probe_results.append(f"`{base}` -> {err_short}")
+
+    lines = [f"Entity: `{entity}`\n", "Probe results:"]
+    lines.extend(probe_results)
+
+    if COMPOSIO_BASE:
+        lines.append(f"\nUsing: `{COMPOSIO_BASE}`")
+        actions = _composio_find_actions()
+        if actions and "error" not in (actions[0] if isinstance(actions[0], dict) else {}):
+            names = [a.get("name", a.get("enum", "?")) for a in actions[:10]]
+            lines.append(f"Strava actions: {len(actions)}")
+            for n in names:
+                lines.append(f"  `{n}`")
     else:
-        lines.append(f"\nAction discovery failed: {actions}")
-
-    raw = _composio_execute(
-        "STRAVA_GET_LOGGED_IN_ATHLETE_ACTIVITIES",
-        {"per_page": 1, "page": 1},
-    )
-    lines.append(f"\nFetch test result keys: {list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__}")
-    if "error" in raw:
-        lines.append(f"Error: `{raw['error'][:200]}`")
+        lines.append("\nNo working API found!")
+        COMPOSIO_BASE = COMPOSIO_API_BASES[0]
 
     await _reply(update, "\n".join(lines))
 
