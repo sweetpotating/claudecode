@@ -4,7 +4,6 @@
 import os
 import json
 import logging
-import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -114,6 +113,10 @@ def _add_hist(cid: int, role: str, content: str):
         _history[cid] = _history[cid][-MAX_HISTORY:]
 
 
+def clear_history(cid: int):
+    _history.pop(cid, None)
+
+
 # --------------- Strava API (direct) ---------------
 
 _strava_token: dict = {}
@@ -132,6 +135,7 @@ def _get_access_token() -> str:
         return saved["access_token"]
 
     log.info("Refreshing Strava access token...")
+    current_refresh = saved.get("refresh_token", STRAVA_REFRESH_TOKEN)
     try:
         with httpx.Client(timeout=15) as client:
             resp = client.post(
@@ -140,14 +144,14 @@ def _get_access_token() -> str:
                     "client_id": STRAVA_CLIENT_ID,
                     "client_secret": STRAVA_CLIENT_SECRET,
                     "grant_type": "refresh_token",
-                    "refresh_token": STRAVA_REFRESH_TOKEN,
+                    "refresh_token": current_refresh,
                 },
             )
             resp.raise_for_status()
             data = resp.json()
             _strava_token = {
                 "access_token": data["access_token"],
-                "refresh_token": data.get("refresh_token", STRAVA_REFRESH_TOKEN),
+                "refresh_token": data.get("refresh_token", current_refresh),
                 "expires_at": data["expires_at"],
             }
             _save(TOKEN_FILE, _strava_token)
@@ -280,7 +284,7 @@ def pace_zone(speed_mps: float) -> str:
 
 
 def fmt_activity(a: dict, detailed: bool = False) -> str:
-    name = a.get("name", "Activity")
+    name = escape_md(a.get("name", "Activity"))
     atype = a.get("type", a.get("sport_type", ""))
     dist = a.get("distance", 0)
     moving = a.get("moving_time", 0)
@@ -334,7 +338,7 @@ def fmt_activity(a: dict, detailed: bool = False) -> str:
 
 
 def fmt_activity_compact(a: dict, idx: int) -> str:
-    name = a.get("name", "Activity")
+    name = escape_md(a.get("name", "Activity"))
     dist = a.get("distance", 0)
     speed = a.get("average_speed", 0)
     date = a.get("start_date_local", a.get("start_date", ""))[:10]
@@ -414,9 +418,11 @@ def ask_claude(prompt: str, chat_id: int | None = None, extra_system: str = "",
             _add_hist(chat_id, "user", prompt)
             _add_hist(chat_id, "assistant", text)
         return text
+    except anthropic.RateLimitError:
+        return "Whoa, too many requests! Give me a sec and try again. 🫣"
     except Exception as e:
         log.error("Claude error: %s", e)
-        return f"AI error: {e}"
+        return "Something went wrong with the AI. Try again in a moment."
 
 
 # --------------- Inline keyboard helpers ---------------
@@ -469,10 +475,40 @@ def after_action_keyboard() -> InlineKeyboardMarkup:
 
 # --------------- Telegram handlers ---------------
 
+_MD_ESCAPE = str.maketrans({c: f"\\{c}" for c in r"\_*[]()~`>#+-=|{}.!"})
+
+
+def escape_md(text: str) -> str:
+    return text.translate(_MD_ESCAPE)
+
+
+def _split_message(text: str, limit: int = 4000) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    chunks = []
+    while text:
+        if len(text) <= limit:
+            chunks.append(text)
+            break
+        split_at = text.rfind("\n", 0, limit)
+        if split_at == -1:
+            split_at = limit
+        chunks.append(text[:split_at])
+        text = text[split_at:].lstrip("\n")
+    return chunks
+
+
 async def _reply(update: Update, text: str, keyboard=None):
     msg = update.message or (update.callback_query.message if update.callback_query else None)
-    if msg:
-        await msg.reply_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    if not msg:
+        return
+    chunks = _split_message(text)
+    for i, chunk in enumerate(chunks):
+        kb = keyboard if i == len(chunks) - 1 else None
+        try:
+            await msg.reply_text(chunk, parse_mode="Markdown", reply_markup=kb)
+        except Exception:
+            await msg.reply_text(chunk, reply_markup=kb)
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -516,7 +552,7 @@ async def cmd_debug(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         activities = fetch_activities(1)
         if activities:
             a = activities[0]
-            lines.append(f"✅ Latest: *{a.get('name', '?')}*")
+            lines.append(f"✅ Latest: *{escape_md(a.get('name', '?'))}*")
             lines.append(f"   {a.get('start_date_local', '?')[:10]} • {fmt_dist(a.get('distance', 0))}")
             lines.append("\n🟢 Strava connection is working!")
         else:
@@ -691,7 +727,7 @@ async def cmd_compare(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     header_lines = [
         "📊 *Run Comparison*\n",
-        f"Latest: *{latest.get('name', '?')}*",
+        f"Latest: *{escape_md(latest.get('name', '?'))}*",
         f"  {fmt_dist(latest.get('distance', 0))} • {fmt_pace(latest.get('average_speed', 0))}",
         f"\nComparing against {len(similar[:5])} similar runs...",
     ]
@@ -769,13 +805,13 @@ async def cmd_pr(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lines = [
         "🏆 *Personal Records* (last 50 activities)\n",
         f"⚡ *Fastest pace*",
-        f"   {fastest.get('name', '?')} — *{fmt_pace(fastest.get('average_speed', 0))}*",
+        f"   {escape_md(fastest.get('name', '?'))} — *{fmt_pace(fastest.get('average_speed', 0))}*",
         f"   {fastest.get('start_date_local', '')[:10]} • {fmt_dist(fastest.get('distance', 0))}\n",
         f"📏 *Longest run*",
-        f"   {longest.get('name', '?')} — *{fmt_dist(longest.get('distance', 0))}*",
+        f"   {escape_md(longest.get('name', '?'))} — *{fmt_dist(longest.get('distance', 0))}*",
         f"   {longest.get('start_date_local', '')[:10]} • {fmt_duration(longest.get('moving_time', 0))}\n",
         f"⛰ *Most elevation*",
-        f"   {most_elev.get('name', '?')} — *{most_elev.get('total_elevation_gain', 0):.0f}m*",
+        f"   {escape_md(most_elev.get('name', '?'))} — *{most_elev.get('total_elevation_gain', 0):.0f}m*",
         f"   {most_elev.get('start_date_local', '')[:10]} • {fmt_dist(most_elev.get('distance', 0))}",
     ]
     await _reply(update, "\n".join(lines))
@@ -793,21 +829,27 @@ async def cmd_streak(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if ds:
             dates.add(ds)
 
-    today = datetime.now(timezone.utc).date()
+    if not dates:
+        await _reply(update, "No dated activities found.")
+        return
+
+    most_recent = max(dates)
+    today = datetime.strptime(most_recent, "%Y-%m-%d").date()
     streak = 0
     d = today
     while str(d) in dates:
         streak += 1
         d -= timedelta(days=1)
-    if streak == 0 and str(today - timedelta(days=1)) in dates:
-        d = today - timedelta(days=1)
-        while str(d) in dates:
-            streak += 1
-            d -= timedelta(days=1)
 
     total_days = len(dates)
-    last_7 = sum(1 for ds in dates
-                 if (today - datetime.strptime(ds, "%Y-%m-%d").date()).days < 7)
+    last_7 = 0
+    for ds in dates:
+        try:
+            diff = (today - datetime.strptime(ds, "%Y-%m-%d").date()).days
+            if diff < 7:
+                last_7 += 1
+        except ValueError:
+            continue
 
     fire = "🔥" * min(streak, 10) if streak > 0 else "💤"
     lines = [
