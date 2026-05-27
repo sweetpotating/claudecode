@@ -36,7 +36,8 @@ log = logging.getLogger("bot")
 
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-MODEL = "claude-sonnet-4-6"
+MODEL_HEAVY = "claude-sonnet-4-6"
+MODEL_LIGHT = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1500
 
 DATA_DIR = Path("data")
@@ -204,6 +205,22 @@ def fetch_athlete() -> dict:
         return {}
 
 
+_SLIM_KEYS = [
+    "name", "type", "sport_type", "distance", "moving_time", "elapsed_time",
+    "average_speed", "max_speed", "average_heartrate", "max_heartrate",
+    "total_elevation_gain", "start_date_local", "suffer_score", "calories",
+    "id",
+]
+
+
+def slim_activity(a: dict) -> dict:
+    return {k: a[k] for k in _SLIM_KEYS if k in a}
+
+
+def slim_activities(activities: list[dict]) -> list[dict]:
+    return [slim_activity(a) for a in activities]
+
+
 # --------------- Visual formatting helpers ---------------
 
 def progress_bar(value: float, max_val: float, width: int = 10) -> str:
@@ -364,7 +381,9 @@ def fmt_summary_stats(activities: list[dict]) -> str:
 
 # --------------- Claude AI helper ---------------
 
-def ask_claude(prompt: str, chat_id: int | None = None, extra_system: str = "") -> str:
+def ask_claude(prompt: str, chat_id: int | None = None, extra_system: str = "",
+               heavy: bool = False) -> str:
+    model = MODEL_HEAVY if heavy else MODEL_LIGHT
     system = SYSTEM_PROMPT
     if extra_system:
         system += "\n\n" + extra_system
@@ -385,7 +404,7 @@ def ask_claude(prompt: str, chat_id: int | None = None, extra_system: str = "") 
 
     try:
         resp = claude.messages.create(
-            model=MODEL,
+            model=model,
             max_tokens=MAX_TOKENS,
             system=system,
             messages=messages,
@@ -549,7 +568,7 @@ async def cmd_week(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     stats = fmt_summary_stats(weekly)
-    data_str = json.dumps(weekly, default=str)
+    data_str = json.dumps(slim_activities(weekly), default=str)
     ai_reply = ask_claude(
         f"Here are my activities from the past 7 days. Give me a weekly training summary. "
         f"Comment on volume, intensity, balance, and what to focus on next.\n\n{data_str}",
@@ -578,7 +597,7 @@ async def cmd_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     stats = fmt_summary_stats(monthly)
-    data_str = json.dumps(monthly, default=str)
+    data_str = json.dumps(slim_activities(monthly), default=str)
     ai_reply = ask_claude(
         f"Here are my activities from the past 30 days. Give me a monthly training summary "
         f"covering volume progression, consistency, pace trends, and recommendations.\n\n{data_str}",
@@ -595,12 +614,13 @@ async def cmd_run_analysis(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     a = activities[0]
     detail = fetch_activity_detail(a.get("id")) if a.get("id") else a
     header = fmt_activity(a, detailed=True)
-    data_str = json.dumps(detail, default=str)
+    data_str = json.dumps(slim_activity(detail), default=str)
     ai_reply = ask_claude(
         f"Deep-analyse this run. Cover: effort level, pace consistency, "
         f"heart rate response, what went well, what to improve, and a rating out of 10.\n\n{data_str}",
         chat_id=update.effective_chat.id,
         extra_system="You are an expert running coach. Give a structured analysis with a rating.",
+        heavy=True,
     )
     await _reply(update, f"🔬 *Run Analysis*\n\n{header}\n\n━━━━━━━━━━━━━━━━━━\n\n{ai_reply}")
 
@@ -623,12 +643,13 @@ async def cmd_hr_analysis(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if hr_data:
         header += "\n".join(hr_data)
 
-    data_str = json.dumps(runs, default=str)
+    data_str = json.dumps(slim_activities(runs), default=str)
     ai_reply = ask_claude(
         f"Analyse pace vs heart rate across these runs. "
         f"Look for cardiac drift, aerobic efficiency, decoupling, and fitness trends.\n\n{data_str}",
         chat_id=update.effective_chat.id,
         extra_system="You are a sports physiologist. Focus on HR zones, efficiency factor, and aerobic development.",
+        heavy=True,
     )
     await _reply(update, f"{header}\n\n━━━━━━━━━━━━━━━━━━\n\n{ai_reply}")
 
@@ -644,7 +665,7 @@ async def cmd_fatigue(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     dists = [a.get("distance", 0) / 1000 for a in activities]
     header = f"😴 *Fatigue Check*\n\n📈 Load trend: {spark_line(dists)}"
 
-    data_str = json.dumps(activities, default=str)
+    data_str = json.dumps(slim_activities(activities), default=str)
     notes_str = json.dumps(notes[-10:], default=str) if notes else "No notes logged."
     ai_reply = ask_claude(
         f"Check for overtraining/fatigue signals. Analyse: training load ramp rate, "
@@ -652,6 +673,7 @@ async def cmd_fatigue(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"Activities:\n{data_str}\n\nNotes:\n{notes_str}",
         chat_id=update.effective_chat.id,
         extra_system="You are a sports scientist. Give a fatigue risk rating (Low/Medium/High) and explain why.",
+        heavy=True,
     )
     await _reply(update, f"{header}\n\n━━━━━━━━━━━━━━━━━━\n\n{ai_reply}")
 
@@ -674,7 +696,7 @@ async def cmd_compare(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"\nComparing against {len(similar[:5])} similar runs...",
     ]
 
-    data = {"latest": latest, "past_similar": similar[:5]}
+    data = {"latest": slim_activity(latest), "past_similar": slim_activities(similar[:5])}
     data_str = json.dumps(data, default=str)
     ai_reply = ask_claude(
         f"Compare my latest run to these past runs. Use a table or structured format. "
@@ -688,7 +710,7 @@ async def cmd_plan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     activities = fetch_activities(14)
     uid = str(update.effective_chat.id)
     goals = get_goals(uid)
-    data_str = json.dumps(activities, default=str) if activities else "No recent activities."
+    data_str = json.dumps(slim_activities(activities), default=str) if activities else "No recent activities."
     goals_str = ", ".join(goals) if goals else "No specific goals set."
     ai_reply = ask_claude(
         f"Create a 7-day training plan based on my recent training and goals. "
@@ -705,7 +727,7 @@ async def cmd_hyrox(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     activities = fetch_activities(14)
     uid = str(update.effective_chat.id)
     goals = get_goals(uid)
-    data_str = json.dumps(activities, default=str) if activities else "No recent activities."
+    data_str = json.dumps(slim_activities(activities), default=str) if activities else "No recent activities."
     ai_reply = ask_claude(
         f"Give HYROX-specific advice based on my training. Cover: running between stations, "
         f"functional workout prep, pacing strategy, and this week's focus.\n\n"
@@ -718,7 +740,7 @@ async def cmd_hyrox(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_raceprep(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     activities = fetch_activities(14)
-    data_str = json.dumps(activities, default=str) if activities else "No recent activities."
+    data_str = json.dumps(slim_activities(activities), default=str) if activities else "No recent activities."
     ai_reply = ask_claude(
         f"I have a race coming up. Give race-week guidance covering: "
         f"taper, nutrition, sleep, warm-up, pacing strategy, and mental prep. "
@@ -850,10 +872,10 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if not text:
         return
-    activities = fetch_activities(5)
+    activities = fetch_activities(3)
     context_str = ""
     if activities:
-        context_str = f"\n\nMy recent Strava activities:\n{json.dumps(activities, default=str)}"
+        context_str = f"\n\nMy recent Strava activities:\n{json.dumps(slim_activities(activities), default=str)}"
     reply = ask_claude(
         text + context_str,
         chat_id=update.effective_chat.id,
