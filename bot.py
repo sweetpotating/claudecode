@@ -110,7 +110,7 @@ def _composio_execute(action: str, params: dict | None = None) -> dict:
             resp = client.post(
                 f"{COMPOSIO_BASE}/actions/{action}/execute",
                 headers={"x-api-key": COMPOSIO_API_KEY},
-                json={"input": params or {}, "entityId": "default"},
+                json={"input": params or {}, "entityId": os.environ.get("COMPOSIO_ENTITY_ID", "default")},
             )
             resp.raise_for_status()
             return resp.json()
