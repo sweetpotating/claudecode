@@ -50,12 +50,15 @@ SYSTEM_PROMPT = (
     "You're like that friend who's always hyped about running — supportive, a little cheeky, "
     "and genuinely knowledgeable. You celebrate wins (even small ones), give honest feedback "
     "when performance dips, and always end with something actionable.\n\n"
+    "The user is a highly trained athlete who works out frequently and intentionally. "
+    "They have hard days AND easy days — high volume is fine. Don't preach about overtraining "
+    "unless you see clear red flags (HR way up at same pace, pace dropping, multiple bad notes). "
+    "Frequency alone isn't a problem.\n\n"
     "Style rules:\n"
     "- Use metric units (km, min/km)\n"
     "- Keep it punchy — short paragraphs, no walls of text\n"
-    "- Use occasional running slang (negative split, bonk, easy pace, tempo, fartlek)\n"
+    "- Use occasional running slang (negative split, easy pace, tempo, fartlek)\n"
     "- Be data-driven but human — numbers matter, but so does how it felt\n"
-    "- Max 250 words unless detailed analysis is requested\n"
     "- When giving pace, always format as X:XX /km\n"
     "- Use bold (*text*) for key numbers and insights"
 )
@@ -213,12 +216,25 @@ _SLIM_KEYS = [
     "name", "type", "sport_type", "distance", "moving_time", "elapsed_time",
     "average_speed", "max_speed", "average_heartrate", "max_heartrate",
     "total_elevation_gain", "start_date_local", "suffer_score", "calories",
-    "id",
+    "average_cadence", "id",
 ]
 
 
 def slim_activity(a: dict) -> dict:
     return {k: a[k] for k in _SLIM_KEYS if k in a}
+
+
+def slim_activity_detailed(a: dict) -> dict:
+    """For analysis — includes splits and laps."""
+    out = slim_activity(a)
+    if a.get("splits_metric"):
+        out["splits_metric"] = [
+            {k: s[k] for k in ("distance", "elapsed_time", "average_speed",
+                               "average_heartrate", "elevation_difference", "split")
+             if k in s}
+            for s in a["splits_metric"][:15]
+        ]
+    return out
 
 
 def slim_activities(activities: list[dict]) -> list[dict]:
@@ -568,8 +584,23 @@ async def cmd_latest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not activities:
         await _reply(update, "😕 No activities found. Check /debug for connection status.")
         return
-    text = fmt_activity(activities[0], detailed=True)
-    await _reply(update, text, after_action_keyboard())
+    a = activities[0]
+    text = fmt_activity(a, detailed=True)
+    kb = None
+    if a.get("id"):
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔬 Analyse this", callback_data=f"ana_{a['id']}"),
+                InlineKeyboardButton("📊 Compare", callback_data="cmd_compare"),
+            ],
+            [
+                InlineKeyboardButton("📋 More activities", callback_data="cmd_last5"),
+                InlineKeyboardButton("📖 Menu", callback_data="cmd_help"),
+            ],
+        ])
+    else:
+        kb = after_action_keyboard()
+    await _reply(update, text, kb)
 
 
 async def cmd_last5(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -643,22 +674,132 @@ async def cmd_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_run_analysis(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    activities = fetch_activities(1)
-    if not activities:
-        await _reply(update, "No activities found.")
+    activities = fetch_activities(10)
+    runs = [a for a in activities if a.get("type", "").lower() in ("run", "virtualrun")][:6]
+    if not runs:
+        await _reply(update, "No runs found.")
         return
-    a = activities[0]
-    detail = fetch_activity_detail(a.get("id")) if a.get("id") else a
-    header = fmt_activity(a, detailed=True)
-    data_str = json.dumps(slim_activity(detail), default=str)
+
+    keyboard = []
+    for r in runs:
+        date = r.get("start_date_local", "")[:10]
+        dist = r.get("distance", 0) / 1000
+        name = (r.get("name", "Run") or "Run")[:18]
+        label = f"{date} • {dist:.1f}km • {name}"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"ana_{r['id']}")])
+
+    await _reply(
+        update,
+        "🔬 *Pick a run to analyse*\n",
+        InlineKeyboardMarkup(keyboard),
+    )
+
+
+def _fmt_splits(splits: list[dict], avg_speed: float) -> str:
+    if not splits:
+        return ""
+    speeds = [s.get("average_speed", 0) for s in splits if s.get("average_speed")]
+    if not speeds:
+        return ""
+    min_s, max_s = min(speeds), max(speeds)
+    lines = []
+    for s in splits[:10]:
+        sp = s.get("average_speed", 0)
+        if not sp:
+            continue
+        pace_s = 1000 / sp
+        m, sec = divmod(int(pace_s), 60)
+        rel = sp - avg_speed
+        marker = "🟢" if rel > 0.05 else ("🔴" if rel < -0.05 else "⚪")
+        spark = "▁▂▃▄▅▆▇█"
+        idx = int((sp - min_s) / (max_s - min_s or 1) * 7) if max_s != min_s else 4
+        bar = spark[min(idx, 7)]
+        km = s.get("split", "?")
+        hr = s.get("average_heartrate")
+        hr_str = f"  ❤️{hr:.0f}" if hr else ""
+        lines.append(f"`{km:>2}` {marker} *{m}:{sec:02d}* {bar}{hr_str}")
+    return "\n".join(lines)
+
+
+async def _run_analyse_by_id(update: Update, ctx: ContextTypes.DEFAULT_TYPE, activity_id: int):
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if msg:
+        await msg.reply_text("🔬 Analysing...")
+
+    detail = fetch_activity_detail(activity_id)
+    if detail.get("error"):
+        await _reply(update, "Couldn't fetch that run.")
+        return
+
+    name = escape_md(detail.get("name", "Run"))
+    date = detail.get("start_date_local", "")[:10]
+    dist = detail.get("distance", 0)
+    moving = detail.get("moving_time", 0)
+    avg_speed = detail.get("average_speed", 0)
+    avg_hr = detail.get("average_heartrate")
+    max_hr = detail.get("max_heartrate")
+    cadence = detail.get("average_cadence")
+    elev = detail.get("total_elevation_gain", 0)
+    splits = detail.get("splits_metric", [])
+
+    lines = [
+        f"🏃 *{name}*",
+        f"📅 {date}",
+        "",
+        f"📏 *{fmt_dist(dist)}* in *{fmt_duration(moving)}*",
+        f"⚡ Avg *{fmt_pace(avg_speed)}*  •  {pace_zone(avg_speed)}",
+    ]
+    if elev > 0:
+        lines.append(f"⛰ {elev:.0f}m elev gain")
+
+    if splits and avg_speed:
+        lines.append("\n*Splits* (km)")
+        lines.append(_fmt_splits(splits, avg_speed))
+
+    hr_line = []
+    if avg_hr:
+        hr_line.append(f"❤️ *{avg_hr:.0f}*")
+        if max_hr:
+            hr_line.append(f"max *{max_hr:.0f}* bpm")
+    if cadence:
+        # Strava reports single-leg cadence; double for spm
+        spm = cadence * 2 if cadence < 130 else cadence
+        hr_line.append(f"🦶 *{spm:.0f}* spm")
+    if hr_line:
+        lines.append("\n" + "  •  ".join(hr_line))
+
+    header = "\n".join(lines)
+
+    splits_summary = ""
+    if splits:
+        paces = [s.get("average_speed", 0) for s in splits if s.get("average_speed")]
+        if paces:
+            fast_k = max(range(len(paces)), key=lambda i: paces[i]) + 1
+            slow_k = min(range(len(paces)), key=lambda i: paces[i]) + 1
+            splits_summary = f"Fastest km: {fast_k}. Slowest km: {slow_k}. "
+            # check for positive/negative split
+            if len(paces) >= 4:
+                first_half = sum(paces[:len(paces)//2]) / (len(paces)//2)
+                second_half = sum(paces[len(paces)//2:]) / (len(paces) - len(paces)//2)
+                if second_half > first_half * 1.02:
+                    splits_summary += "Negative split (sped up). "
+                elif first_half > second_half * 1.02:
+                    splits_summary += "Positive split (slowed down). "
+
+    prompt = (
+        f"Give a SHORT analysis (max 100 words, 3-4 short lines) of this run. "
+        f"Cover: 1) effort & pace consistency, 2) HR/cadence read, 3) one thing to improve next time. "
+        f"End with a rating like '*7/10*'. {splits_summary}\n\n"
+        f"Data: {json.dumps(slim_activity_detailed(detail), default=str)}"
+    )
     ai_reply = ask_claude(
-        f"Deep-analyse this run. Cover: effort level, pace consistency, "
-        f"heart rate response, what went well, what to improve, and a rating out of 10.\n\n{data_str}",
+        prompt,
         chat_id=update.effective_chat.id,
-        extra_system="You are an expert running coach. Give a structured analysis with a rating.",
+        extra_system="Concise expert running coach. Brief, punchy, mobile-friendly.",
         heavy=True,
     )
-    await _reply(update, f"🔬 *Run Analysis*\n\n{header}\n\n━━━━━━━━━━━━━━━━━━\n\n{ai_reply}")
+
+    await _reply(update, f"{header}\n\n━━━━━━━━━━━━━━\n*Coach says*\n{ai_reply}")
 
 
 async def cmd_hr_analysis(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -929,6 +1070,14 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cmd = query.data
+
+    if cmd.startswith("ana_"):
+        try:
+            activity_id = int(cmd[4:])
+            await _run_analyse_by_id(update, ctx, activity_id)
+        except ValueError:
+            await _reply(update, "Bad activity id.")
+        return
 
     handlers = {
         "cmd_latest": cmd_latest,
