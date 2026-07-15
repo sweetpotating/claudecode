@@ -1152,8 +1152,23 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    log.info("Starting RUN FASTA FATTI...")
-    app.run_polling(drop_pending_updates=True)
+    port = os.environ.get("PORT")
+    public_url = os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+
+    if port and public_url:
+        webhook_path = TELEGRAM_TOKEN
+        webhook_url = f"{public_url.rstrip('/')}/{webhook_path}"
+        log.info("Starting RUN FASTA FATTI in webhook mode on port %s, URL: %s", port, webhook_url)
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=int(port),
+            url_path=webhook_path,
+            webhook_url=webhook_url,
+            drop_pending_updates=True,
+        )
+    else:
+        log.info("Starting RUN FASTA FATTI in polling mode...")
+        app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
